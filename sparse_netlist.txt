@@ -1,0 +1,111 @@
+Module: adder
+
+Inputs:
+  a
+  b
+  c
+
+Outputs:
+  cout
+  s
+
+Wires:
+  n_00_
+  n_01_
+  n_02_
+  n_03_
+  n_04_
+
+Cells:
+  Cell Name: n_05_
+  Cell Type: and_bb
+  Pins:
+    Pin Name: a
+    Pin Type: input
+    Connected to: b
+    Pin Name: b
+    Pin Type: input
+    Connected to: a
+    Pin Name: q
+    Pin Type: output
+    Connected to: n_01_
+
+  Cell Name: n_06_
+  Cell Type: or_bb
+  Pins:
+    Pin Name: a
+    Pin Type: input
+    Connected to: b
+    Pin Name: b
+    Pin Type: input
+    Connected to: a
+    Pin Name: q
+    Pin Type: output
+    Connected to: n_02_
+
+  Cell Name: n_07_
+  Cell Type: or_bi
+  Pins:
+    Pin Name: a
+    Pin Type: input
+    Connected to: n_01_
+    Pin Name: b
+    Pin Type: input
+    Connected to: n_02_
+    Pin Name: q
+    Pin Type: output
+    Connected to: n_03_
+
+  Cell Name: n_08_
+  Cell Type: and_bi
+  Pins:
+    Pin Name: a
+    Pin Type: input
+    Connected to: c
+    Pin Name: b
+    Pin Type: input
+    Connected to: n_03_
+    Pin Name: q
+    Pin Type: output
+    Connected to: n_04_
+
+  Cell Name: n_09_
+  Cell Type: or_bi
+  Pins:
+    Pin Name: a
+    Pin Type: input
+    Connected to: c
+    Pin Name: b
+    Pin Type: input
+    Connected to: n_03_
+    Pin Name: q
+    Pin Type: output
+    Connected to: n_00_
+
+  Cell Name: n_10_
+  Cell Type: and_bi
+  Pins:
+    Pin Name: a
+    Pin Type: input
+    Connected to: n_00_
+    Pin Name: b
+    Pin Type: input
+    Connected to: n_04_
+    Pin Name: q
+    Pin Type: output
+    Connected to: s
+
+  Cell Name: n_11_
+  Cell Type: or_bb
+  Pins:
+    Pin Name: a
+    Pin Type: input
+    Connected to: n_04_
+    Pin Name: b
+    Pin Type: input
+    Connected to: n_01_
+    Pin Name: q
+    Pin Type: output
+    Connected to: cout
+
+-------

@@ -1,0 +1,96 @@
+Module: adder
+Cell: n_05_ - Level: 2
+  a (input): b_split_0
+  b (input): a_split_0
+  q (output): n_01_
+Cell: n_06_ - Level: 2
+  a (input): b_split_1
+  b (input): a_split_1
+  q (output): n_02_
+Cell: n_07_ - Level: 4
+  a (input): n_01__split_0
+  b (input): n_02__buffer_0
+  q (output): n_03_
+Cell: n_08_ - Level: 6
+  a (input): c_split_0_buffer_0_buffer_1_buffer_2_buffer_3
+  b (input): n_03__split_0
+  q (output): n_04_
+Cell: n_09_ - Level: 6
+  a (input): c_split_1_buffer_0_buffer_1_buffer_2_buffer_3
+  b (input): n_03__split_1
+  q (output): n_00_
+Cell: n_10_ - Level: 8
+  a (input): n_00__buffer_0
+  b (input): n_04__split_0
+  q (output): s
+Cell: n_11_ - Level: 8
+  a (input): n_04__split_1
+  b (input): n_01__split_1_buffer_0_buffer_1_buffer_2_buffer_3
+  q (output): cout
+Cell: splitter_b - Level: 1
+  a (input): b
+  x (output): b_split_0
+  y (output): b_split_1
+Cell: splitter_a - Level: 1
+  a (input): a
+  x (output): a_split_0
+  y (output): a_split_1
+Cell: splitter_n_01_ - Level: 3
+  a (input): n_01_
+  x (output): n_01__split_0
+  y (output): n_01__split_1
+Cell: splitter_c - Level: 1
+  a (input): c
+  x (output): c_split_0
+  y (output): c_split_1
+Cell: splitter_n_03_ - Level: 5
+  a (input): n_03_
+  x (output): n_03__split_0
+  y (output): n_03__split_1
+Cell: splitter_n_04_ - Level: 7
+  a (input): n_04_
+  x (output): n_04__split_0
+  y (output): n_04__split_1
+Cell: buffer_n_02__0 - Level: 3
+  a (input): n_02_
+  q (output): n_02__buffer_0
+Cell: buffer_n_00__0 - Level: 7
+  a (input): n_00_
+  q (output): n_00__buffer_0
+Cell: buffer_n_01__split_1_0 - Level: 4
+  a (input): n_01__split_1
+  q (output): n_01__split_1_buffer_0
+Cell: buffer_n_01__split_1_buffer_0_1 - Level: 5
+  a (input): n_01__split_1_buffer_0
+  q (output): n_01__split_1_buffer_0_buffer_1
+Cell: buffer_n_01__split_1_buffer_0_buffer_1_2 - Level: 6
+  a (input): n_01__split_1_buffer_0_buffer_1
+  q (output): n_01__split_1_buffer_0_buffer_1_buffer_2
+Cell: buffer_n_01__split_1_buffer_0_buffer_1_buffer_2_3 - Level: 7
+  a (input): n_01__split_1_buffer_0_buffer_1_buffer_2
+  q (output): n_01__split_1_buffer_0_buffer_1_buffer_2_buffer_3
+Cell: buffer_c_split_0_0 - Level: 2
+  a (input): c_split_0
+  q (output): c_split_0_buffer_0
+Cell: buffer_c_split_0_buffer_0_1 - Level: 3
+  a (input): c_split_0_buffer_0
+  q (output): c_split_0_buffer_0_buffer_1
+Cell: buffer_c_split_0_buffer_0_buffer_1_2 - Level: 4
+  a (input): c_split_0_buffer_0_buffer_1
+  q (output): c_split_0_buffer_0_buffer_1_buffer_2
+Cell: buffer_c_split_0_buffer_0_buffer_1_buffer_2_3 - Level: 5
+  a (input): c_split_0_buffer_0_buffer_1_buffer_2
+  q (output): c_split_0_buffer_0_buffer_1_buffer_2_buffer_3
+Cell: buffer_c_split_1_0 - Level: 2
+  a (input): c_split_1
+  q (output): c_split_1_buffer_0
+Cell: buffer_c_split_1_buffer_0_1 - Level: 3
+  a (input): c_split_1_buffer_0
+  q (output): c_split_1_buffer_0_buffer_1
+Cell: buffer_c_split_1_buffer_0_buffer_1_2 - Level: 4
+  a (input): c_split_1_buffer_0_buffer_1
+  q (output): c_split_1_buffer_0_buffer_1_buffer_2
+Cell: buffer_c_split_1_buffer_0_buffer_1_buffer_2_3 - Level: 5
+  a (input): c_split_1_buffer_0_buffer_1_buffer_2
+  q (output): c_split_1_buffer_0_buffer_1_buffer_2_buffer_3
+

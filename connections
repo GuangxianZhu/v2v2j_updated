@@ -1,0 +1,87 @@
+digraph {
+	n_05_ [label="n_05_
+Level: 2"]
+	n_06_ [label="n_06_
+Level: 2"]
+	n_07_ [label="n_07_
+Level: 4"]
+	n_08_ [label="n_08_
+Level: 6"]
+	n_09_ [label="n_09_
+Level: 6"]
+	n_10_ [label="n_10_
+Level: 8"]
+	n_11_ [label="n_11_
+Level: 8"]
+	splitter_b [label="splitter_b
+Level: 1"]
+	splitter_a [label="splitter_a
+Level: 1"]
+	splitter_n_01_ [label="splitter_n_01_
+Level: 3"]
+	splitter_c [label="splitter_c
+Level: 1"]
+	splitter_n_03_ [label="splitter_n_03_
+Level: 5"]
+	splitter_n_04_ [label="splitter_n_04_
+Level: 7"]
+	buffer_n_02__0 [label="buffer_n_02__0
+Level: 3"]
+	buffer_n_00__0 [label="buffer_n_00__0
+Level: 7"]
+	buffer_n_01__split_1_0 [label="buffer_n_01__split_1_0
+Level: 4"]
+	buffer_n_01__split_1_buffer_0_1 [label="buffer_n_01__split_1_buffer_0_1
+Level: 5"]
+	buffer_n_01__split_1_buffer_0_buffer_1_2 [label="buffer_n_01__split_1_buffer_0_buffer_1_2
+Level: 6"]
+	buffer_n_01__split_1_buffer_0_buffer_1_buffer_2_3 [label="buffer_n_01__split_1_buffer_0_buffer_1_buffer_2_3
+Level: 7"]
+	buffer_c_split_0_0 [label="buffer_c_split_0_0
+Level: 2"]
+	buffer_c_split_0_buffer_0_1 [label="buffer_c_split_0_buffer_0_1
+Level: 3"]
+	buffer_c_split_0_buffer_0_buffer_1_2 [label="buffer_c_split_0_buffer_0_buffer_1_2
+Level: 4"]
+	buffer_c_split_0_buffer_0_buffer_1_buffer_2_3 [label="buffer_c_split_0_buffer_0_buffer_1_buffer_2_3
+Level: 5"]
+	buffer_c_split_1_0 [label="buffer_c_split_1_0
+Level: 2"]
+	buffer_c_split_1_buffer_0_1 [label="buffer_c_split_1_buffer_0_1
+Level: 3"]
+	buffer_c_split_1_buffer_0_buffer_1_2 [label="buffer_c_split_1_buffer_0_buffer_1_2
+Level: 4"]
+	buffer_c_split_1_buffer_0_buffer_1_buffer_2_3 [label="buffer_c_split_1_buffer_0_buffer_1_buffer_2_3
+Level: 5"]
+	n_05_ -> splitter_n_01_ [label=n_01_]
+	n_06_ -> buffer_n_02__0 [label=n_02_]
+	n_07_ -> splitter_n_03_ [label=n_03_]
+	n_08_ -> splitter_n_04_ [label=n_04_]
+	n_09_ -> buffer_n_00__0 [label=n_00_]
+	splitter_b -> n_05_ [label=b_split_0]
+	splitter_b -> n_06_ [label=b_split_1]
+	splitter_a -> n_05_ [label=a_split_0]
+	splitter_a -> n_06_ [label=a_split_1]
+	splitter_n_01_ -> n_07_ [label=n_01__split_0]
+	splitter_n_01_ -> buffer_n_01__split_1_0 [label=n_01__split_1]
+	splitter_c -> buffer_c_split_0_0 [label=c_split_0]
+	splitter_c -> buffer_c_split_1_0 [label=c_split_1]
+	splitter_n_03_ -> n_08_ [label=n_03__split_0]
+	splitter_n_03_ -> n_09_ [label=n_03__split_1]
+	splitter_n_04_ -> n_10_ [label=n_04__split_0]
+	splitter_n_04_ -> n_11_ [label=n_04__split_1]
+	buffer_n_02__0 -> n_07_ [label=n_02__buffer_0]
+	buffer_n_00__0 -> n_10_ [label=n_00__buffer_0]
+	buffer_n_01__split_1_0 -> buffer_n_01__split_1_buffer_0_1 [label=n_01__split_1_buffer_0]
+	buffer_n_01__split_1_buffer_0_1 -> buffer_n_01__split_1_buffer_0_buffer_1_2 [label=n_01__split_1_buffer_0_buffer_1]
+	buffer_n_01__split_1_buffer_0_buffer_1_2 -> buffer_n_01__split_1_buffer_0_buffer_1_buffer_2_3 [label=n_01__split_1_buffer_0_buffer_1_buffer_2]
+	buffer_n_01__split_1_buffer_0_buffer_1_buffer_2_3 -> n_11_ [label=n_01__split_1_buffer_0_buffer_1_buffer_2_buffer_3]
+	buffer_c_split_0_0 -> buffer_c_split_0_buffer_0_1 [label=c_split_0_buffer_0]
+	buffer_c_split_0_buffer_0_1 -> buffer_c_split_0_buffer_0_buffer_1_2 [label=c_split_0_buffer_0_buffer_1]
+	buffer_c_split_0_buffer_0_buffer_1_2 -> buffer_c_split_0_buffer_0_buffer_1_buffer_2_3 [label=c_split_0_buffer_0_buffer_1_buffer_2]
+	buffer_c_split_0_buffer_0_buffer_1_buffer_2_3 -> n_08_ [label=c_split_0_buffer_0_buffer_1_buffer_2_buffer_3]
+	buffer_c_split_1_0 -> buffer_c_split_1_buffer_0_1 [label=c_split_1_buffer_0]
+	buffer_c_split_1_buffer_0_1 -> buffer_c_split_1_buffer_0_buffer_1_2 [label=c_split_1_buffer_0_buffer_1]
+	buffer_c_split_1_buffer_0_buffer_1_2 -> buffer_c_split_1_buffer_0_buffer_1_buffer_2_3 [label=c_split_1_buffer_0_buffer_1_buffer_2]
+	buffer_c_split_1_buffer_0_buffer_1_buffer_2_3 -> n_09_ [label=c_split_1_buffer_0_buffer_1_buffer_2_buffer_3]
+}
