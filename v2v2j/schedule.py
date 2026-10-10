@@ -30,6 +30,7 @@ class Config:
     method: str = "best"                # asap / alap / lp / best
     refine: bool = True                 # 用精确代价做局部搜索
     depth: Optional[int] = None         # 指定输出相位 D（None = 最小可行深度）
+    exact_depth: bool = True            # 用精确的树可行性压缩深度（否则用保守的 ceil(log_k n)）
 
 
 @dataclass
@@ -61,6 +62,7 @@ class _Graph:
                 raise ValueError(f"网线 {n} 没有驱动")
             if d[0] is not None:
                 self.net_of_out.setdefault(d[0], []).append(n)
+        self.gaps: Dict[str, List[int]] = {}
         self.in_nets: Dict[str, List[str]] = {g: [] for g in self.order}
         for n in self.nets:
             for s in self.snk[n]:
@@ -75,6 +77,12 @@ class _Graph:
         if self.is_pi_net(n) and self.cfg.branch_pis:
             return 0
         return trees.splitter_depth(len(self.snk[n]), self.k)
+
+    def gap(self, n: str, j: int) -> int:
+        """第 j 个负载与驱动之间至少隔几级 splitter。默认用保守的 sd(n)；
+        精确压缩后，"紧"的网线改用压缩解里实际的间隔（见 _tighten）。"""
+        g = self.gaps.get(n)
+        return g[j] if g is not None else self.sd(n)
 
     def root_cap(self, n: str) -> float:
         return trees.INF if (self.is_pi_net(n) and self.cfg.branch_pis) else 1
@@ -139,11 +147,11 @@ def _alap(g: _Graph, D: int, asap: Dict[str, int]) -> Dict[str, int]:
     for gate in reversed(g.order):
         L = None
         for n in g.net_of_out.get(gate, []):
-            for s in g.snk[n]:
+            for j, s in enumerate(g.snk[n]):
                 if s.inst is None:
-                    lim = D - g.sd(n) if g.cfg.balance_pos else asap[gate]
+                    lim = D - g.gap(n, j) if g.cfg.balance_pos else asap[gate]
                 else:
-                    lim = lv[s.inst] - 1 - g.sd(n)
+                    lim = lv[s.inst] - 1 - g.gap(n, j)
                 L = lim if L is None else min(L, lim)
         lv[gate] = asap[gate] if L is None else max(L, asap[gate])
     return lv
@@ -186,11 +194,11 @@ def _lp(g: _Graph, D: int) -> Optional[Dict[str, int]]:
     r = 0
     for n in g.nets:
         dv, _ = var_of_driver(n)
-        sd = g.sd(n)
         obj[mi[n]] += 1
         if dv is not None:
             obj[dv] -= 1
-        for s in g.snk[n]:
+        for j, s in enumerate(g.snk[n]):
+            sd = g.gap(n, j)
             if s.inst is None:
                 if not g.cfg.balance_pos:
                     continue
@@ -253,16 +261,102 @@ def _refine(g: _Graph, lv: Dict[str, int], D: int, max_passes: int = 20) -> Dict
     return lv
 
 
+def _feasible(g: _Graph, nets: List[str], lv: Dict[str, int], D: int) -> bool:
+    return all(g.net_cost(n, lv, D) >= 0 for n in nets)
+
+
+def _compact(g: _Graph, lv: Dict[str, int], D: int) -> Tuple[Dict[str, int], int]:
+    """精确压缩：保守 ASAP 让扇出 n 的网线所有负载统一推迟 ceil(log_k n) 级，
+    其实部分负载可以更早（Kraft 不等式 Σ k^-d ≤ 1 还有余量时）。
+    这里按拓扑序反复把门往前挪一级，只要相关网线的树仍可行；再尝试把输出相位 D 往前挪。
+    这是启发式（贪心），不保证全局深度最优，但在基准上与 mockturtle 的 depth-optimal 调度深度一致。"""
+    lv = dict(lv)
+    po_nets = [n for n in g.nets if any(s.inst is None for s in g.snk[n])]
+    touched = {gate: g.in_nets[gate] + g.net_of_out.get(gate, []) for gate in g.order}
+    while True:
+        changed = True
+        while changed:
+            changed = False
+            for gate in g.order:
+                while lv[gate] > 1:
+                    lv[gate] -= 1
+                    if _feasible(g, touched[gate], lv, D):
+                        changed = True
+                    else:
+                        lv[gate] += 1
+                        break
+        if not g.cfg.balance_pos or D == 0 or not _feasible(g, po_nets, lv, D - 1):
+            return lv, D
+        D -= 1
+
+
+def _alap_exact(g: _Graph, D: int) -> Optional[Dict[str, int]]:
+    """给定输出相位 D，求每个门"最晚能放在哪一级"（精确树可行性）。
+    逆拓扑序处理：一个门的负载都已定级，它的最晚级数 = 让输出树仍可行的最晚驱动相位
+    （trees.plan 在驱动相位自由时给出的正是这个值）。
+    单调性：负载越晚，驱动最晚相位只会越晚；负载越晚，扇入网线的 Kraft 和只会越小。
+    所以若 D 下存在任何可行调度，这个"全体最晚"的调度也可行——它同时是 D 是否可行的精确判据。"""
+    lv: Dict[str, int] = {}
+    for gate in reversed(g.order):
+        latest = D
+        for n in g.net_of_out.get(gate, []):
+            reqs = g.reqs(n, lv, D) if all(s.inst is None or s.inst in lv for s in g.snk[n]) else None
+            if reqs is None:
+                return None
+            root, _c, cost = trees.plan(reqs, g.k, None, g.root_cap(n))
+            if cost < 0 or root is None:
+                return None
+            latest = min(latest, root)
+        if latest < 1:
+            return None
+        lv[gate] = latest
+    for n in g.nets:  # 主输入网线：驱动固定在第 0 级
+        if g.drv[n][0] is None and g.cfg.balance_pis and g.net_cost(n, lv, D) < 0:
+            return None
+    return lv
+
+
+def _tighten(g: _Graph, lv: Dict[str, int], D: int) -> None:
+    """记录压缩解里"比保守间隔更近"的网线：这些网线的所有负载都不许比压缩解里更靠近驱动。
+    这样 ALAP/LP 在同一深度下得到的解依然满足 Kraft 不等式（负载只会更远，权重只会更小）。"""
+    g.gaps = {}
+    for n in g.nets:
+        root = g.root_level(n, lv)
+        if root is None:
+            continue
+        reqs = g.reqs(n, lv, D)
+        d = [r - root for r in reqs]
+        sd = g.sd(n)
+        if any(x < sd for x in d):
+            g.gaps[n] = d
+
+
 def schedule(nl: Netlist, cfg: Optional[Config] = None) -> Schedule:
     cfg = cfg or Config()
     g = _Graph(nl, cfg)
-    asap, D_min = _asap(g)
-    D = D_min if cfg.depth is None else cfg.depth
+    asap0, D_cons = _asap(g)
     notes = []
+    if cfg.exact_depth and cfg.balance_pos:
+        # 深度最优：从保守深度往下试，直到"全体最晚"调度不可行
+        D_min = D_cons
+        while D_min > 1 and _alap_exact(g, D_min - 1) is not None:
+            D_min -= 1
+        late = _alap_exact(g, D_min)
+        assert late is not None
+        asap, _ = _compact(g, late, D_min)   # 从最晚解出发尽量往前挪，得到同深度下的"最早"解
+        if D_min < D_cons:
+            notes.append(f"精确树可行性把深度从 {D_cons} 降到 {D_min}")
+    elif cfg.exact_depth:
+        asap, D_min = _compact(g, asap0, D_cons)
+    else:
+        asap, D_min = asap0, D_cons
+    D = D_min if cfg.depth is None else cfg.depth
     if D < D_min:
         raise ValueError(f"指定深度 {D} 小于最小可行深度 {D_min}")
     if D > D_min:
         notes.append(f"输出相位被指定为 {D}（最小可行为 {D_min}）")
+    if cfg.exact_depth:
+        _tighten(g, asap, D)
 
     cands: List[Tuple[str, Dict[str, int]]] = []
     methods = [cfg.method] if cfg.method != "best" else ["asap", "alap", "lp"]
