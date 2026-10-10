@@ -1,0 +1,5 @@
+{
+  "_说明": "v2v2j 单元名 -> JoSIM 子电路名与端口顺序。端口名用 Verilog 单元库里的名字。",
+  "bfr": {"subckt": "pi_buffer3",  "ports": ["a", "din", "dout", "q", "xin", "xout"]},
+  "inv": {"subckt": "pi_inverter", "ports": ["a", "din", "dout", "q", "xin", "xout"]}
+}

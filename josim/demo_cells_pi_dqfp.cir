@@ -1,0 +1,47 @@
+* AQFP 演示单元（教学用）
+* 来源：JoSIM 仓库 test/ex_pi_DQFP_buffer_chan.cir 与 test/ex_pi_DQFP_inverter_chain.cir
+*       （JoSIM, MIT License, Copyright (c) 2020 Johannes Delport；原注释注明 HSTP / hstp_komiya_lib）
+* 只有 buffer 与 inverter 两种单元——足以验证 v2v2j 生成的励磁接线与时序，
+* 但跑不了含 AND/OR/splitter 的电路。请换成你自己的单元库（端口映射见 demo_cellmap.json）。
+.model jjmod jj(Rtype=1, Vg=2.8mV, Cap=0.064pF, R0=100ohm, Rn=17ohm, Icrit=0.1mA, Phi=pi)
+
+.subckt pi_buffer3          1          2          3          4          5          6
+***         a       din      dout         q       xin      xout
+Kxd                Lx         Ld 0.190
+Kd2                Ld         L2 -0.133
+Kx2                Lx         L2 -0.186
+Kx1                Lx         L1 -0.186
+Kd1                Ld         L1 -0.133
+Bpi2               7         0  jjmod area=0.50
+Bpi1               8         0  jjmod area=0.50
+Lq1                9        10   0.140pH fcheck
+Lq2               10         0   7.780pH fcheck
+L2                 7         9   1.590pH fcheck
+Lin                1         9   1.230pH fcheck
+Lout              10        11  23.420pH fcheck
+Lx                 5         6   7.400pH fcheck
+Ld                 2         3   7.450pH fcheck
+L1                 9         8   1.590pH fcheck
+Rout              11         4   1.000pohm nfree
+.ends
+
+.subckt pi_inverter          1          2          3          4          5          6
+***         a       din      dout         q       xin      xout
+Rout               7         4   1.000pohm nfree
+Bpi3               8         9  jjmod area=0.30
+Bpi1              10         0  jjmod area=0.60
+Bpi2              11         0  jjmod area=0.60
+Kxd                Lx         Ld 0.190
+Kd2                Ld         L2 -0.133
+Kx2                Lx         L2 -0.186
+Kx1                Lx         L1 -0.186
+Kd1                Ld         L1 -0.133
+Lq2                9         0   9.200pH fcheck
+Lq1                8         0   7.680pH fcheck
+L2                11         8   1.590pH fcheck
+Lin                1         8   1.230pH fcheck
+Lout               9         7   2.200pH fcheck
+Lx                 5         6   7.400pH fcheck
+Ld                 2         3   7.450pH fcheck
+L1                 8        10   1.590pH fcheck
+.ends
