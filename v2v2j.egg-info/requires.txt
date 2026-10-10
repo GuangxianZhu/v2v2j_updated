@@ -1,0 +1,13 @@
+
+[dev]
+pytest
+scipy>=1.9
+numpy
+yowasp-yosys
+
+[lp]
+scipy>=1.9
+numpy
+
+[rtl]
+yowasp-yosys

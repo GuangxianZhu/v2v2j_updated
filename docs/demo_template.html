@@ -1,0 +1,679 @@
+<title>AQFP 相位实验台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;900&display=swap">
+<style>
+/* 布局：上方一条"示波器"式的四相时钟带；主体是按相位分列的网表图，图下是读数表。纸面偏冷蓝，四个相位各有一色，强调色就是相位色本身。 */
+:root {
+  --paper: #eef2f5;
+  --sheet: #fbfcfd;
+  --ink: #18222e;
+  --ink-2: #4a5867;
+  --rule: #cdd6df;
+  --grid: #e2e8ee;
+  --p0: #0d7f86;
+  --p1: #b9760f;
+  --p2: #b1386f;
+  --p3: #4651c4;
+  --bad: #c62d2d;
+  --warn: #d4770c;
+  --good: #1f8a4c;
+  --one: #18222e;
+  --zero: #9aa7b4;
+  --f-display: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --f-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10161d; --sheet: #161e27; --ink: #e3e9ef; --ink-2: #9fb0c0; --rule: #2c3846; --grid: #1f2933;
+    --p0: #3fbac1; --p1: #e7a43e; --p2: #e2689f; --p3: #8a93f2; --bad: #ff6b6b; --warn: #f2a14a; --good: #4fc985;
+    --one: #e3e9ef; --zero: #56677a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10161d; --sheet: #161e27; --ink: #e3e9ef; --ink-2: #9fb0c0; --rule: #2c3846; --grid: #1f2933;
+  --p0: #3fbac1; --p1: #e7a43e; --p2: #e2689f; --p3: #8a93f2; --bad: #ff6b6b; --warn: #f2a14a; --good: #4fc985;
+  --one: #e3e9ef; --zero: #56677a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.65; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.25; }
+h1 { font-size: clamp(28px, 4.4vw, 44px); font-weight: 900; letter-spacing: .02em; }
+h2 { font-size: 22px; font-weight: 600; }
+h3 { font-size: 16px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--f-mono); font-size: .92em; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+.lede { color: var(--ink-2); font-size: 16px; }
+header { display: grid; gap: 10px; }
+
+/* 时钟带 */
+.clock { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; display: grid; gap: 6px; }
+.clock svg { width: 100%; height: 92px; display: block; }
+.clock .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.rule { border-top: 2px solid var(--ink); padding-top: 10px; display: grid; gap: 6px; }
+.rule p { font-size: 14px; color: var(--ink-2); }
+
+/* 工作台 */
+.bench { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 18px; display: grid; gap: 16px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { font: inherit; font-size: 14px; border: 1px solid var(--rule); background: transparent; color: var(--ink); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.chip:focus-visible, .btn:focus-visible, .opt:focus-visible, .tab:focus-visible { outline: 2px solid var(--p3); outline-offset: 2px; }
+.label { font-size: 12px; color: var(--ink-2); letter-spacing: .06em; min-width: 3.5em; }
+.desc { color: var(--ink-2); font-size: 14px; }
+
+.quiz { border: 1px dashed var(--rule); border-radius: 6px; padding: 12px 14px; display: grid; gap: 10px; }
+.quiz .opts { display: grid; gap: 6px; }
+.opt { font: inherit; text-align: left; border: 1px solid var(--rule); border-radius: 5px; background: var(--paper); color: var(--ink); padding: 6px 10px; cursor: pointer; }
+.opt.right { border-color: var(--good); box-shadow: inset 3px 0 0 var(--good); }
+.opt.wrong { border-color: var(--bad); box-shadow: inset 3px 0 0 var(--bad); }
+.opt:disabled { cursor: default; }
+.reveal { font-size: 14px; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--rule); }
+.tab { font: inherit; font-size: 14px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--ink-2); padding: 6px 12px; cursor: pointer; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 500; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.seg button { font: inherit; font-size: 14px; border: 0; background: transparent; color: var(--ink-2); padding: 4px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+.stat { border-left: 2px solid var(--rule); padding-left: 10px; }
+.stat b { display: block; font-family: var(--f-mono); font-size: 22px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.stat span { font-size: 12px; color: var(--ink-2); }
+.stat.bad { border-left-color: var(--bad); } .stat.bad b { color: var(--bad); }
+.stat.good { border-left-color: var(--good); }
+
+.note { font-size: 14px; background: var(--paper); border-radius: 6px; padding: 10px 12px; }
+.note.bad { box-shadow: inset 3px 0 0 var(--bad); }
+.canvas { overflow-x: auto; border: 1px solid var(--grid); border-radius: 6px; background: var(--sheet); }
+.canvas svg { display: block; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); }
+.keys i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: 3px; margin-right: 5px; }
+
+.run { display: grid; gap: 10px; }
+.btn { font: inherit; font-size: 14px; border: 1px solid var(--ink); background: var(--ink); color: var(--sheet); border-radius: 5px; padding: 5px 14px; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--ink); }
+.tclock { font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 4px 10px; border-bottom: 1px solid var(--grid); text-align: left; white-space: nowrap; }
+th { font-family: var(--f-body); font-weight: 500; color: var(--ink-2); font-size: 12px; }
+td.ok { color: var(--good); } td.ng { color: var(--bad); font-weight: 600; } td.x { color: var(--warn); font-weight: 600; }
+.errs { font-size: 13px; color: var(--ink-2); margin: 0; padding-left: 1.2em; display: grid; gap: 2px; }
+
+.theory { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+.theory section { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.theory p { font-size: 14px; color: var(--ink-2); }
+.formula { font-family: var(--f-mono); font-size: 13px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 5px; padding: 8px 10px; overflow-x: auto; white-space: pre; }
+.tag { font-family: var(--f-mono); font-size: 11px; letter-spacing: .05em; border: 1px solid currentColor; border-radius: 3px; padding: 0 5px; margin-left: 6px; vertical-align: 2px; }
+.tag.strong { color: var(--good); } .tag.mid { color: var(--p1); } .tag.weak { color: var(--p2); }
+.load { display: grid; gap: 8px; font-size: 14px; color: var(--ink-2); }
+footer { font-size: 13px; color: var(--ink-2); display: grid; gap: 4px; }
+a { color: var(--p3); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">v2v2j · AQFP buffer / splitter insertion</div>
+    <h1>AQFP 相位实验台</h1>
+    <p class="lede">绝热量子磁通参量器（AQFP）的每个门都由交流励磁按相位驱动，信号一级一级往前"接力"。
+      插 buffer 和 splitter，就是让每一棒都恰好落在下一相位上。下面用同一组电路对比原版算法和新版算法，你可以一步步看，也可以通电跑起来。</p>
+  </header>
+
+  <div class="clock" aria-label="四相时钟示意">
+    <svg id="clockSvg" viewBox="0 0 800 92" preserveAspectRatio="none" role="img" aria-label="四相励磁波形"></svg>
+    <div class="legend" id="clockLegend"></div>
+  </div>
+
+  <div class="rules">
+    <div class="rule"><h3>约束一：每个输出只能驱动一个负载</h3>
+      <p>AQFP 门的输出电流只有几十微安，分给两个负载就判不清 0/1。要驱动多个负载，必须先过 splitter（1 进 2~4 出），而 splitter 自己也占一个相位。</p></div>
+    <div class="rule"><h3>约束二：所有输入必须来自上一相位</h3>
+      <p>第 L 级的门只在相位 (L−1) mod 4 被激励，它读的是上一相位刚算好、仍在保持的输出。路径短了就得补 buffer，否则读到的不是没励磁的空值，就是别的周期的数据。</p></div>
+    <div class="rule"><h3>输出对齐</h3>
+      <p>所有主输出在同一相位取出，电路才能每个时钟周期吃一组新输入（整体就是一条门级流水线）。</p></div>
+  </div>
+
+  <section class="bench" aria-label="实验台">
+    <div class="row" id="exChips" role="group" aria-label="选择示例"></div>
+    <p class="desc" id="exDesc"></p>
+
+    <div class="quiz" id="quiz" hidden>
+      <div><span class="eyebrow">先预测</span></div>
+      <p id="quizQ"></p>
+      <div class="opts" id="quizOpts"></div>
+      <p class="reveal" id="quizA" hidden></p>
+    </div>
+
+    <div class="row">
+      <span class="label">算法</span>
+      <div class="seg" role="group" aria-label="算法版本">
+        <button type="button" id="vNew" aria-pressed="true">新版</button>
+        <button type="button" id="vOld" aria-pressed="false">原版（2023）</button>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="stats" id="stats"></div>
+    <div class="note" id="stepNote"></div>
+    <div class="keys" id="keys"></div>
+    <div class="canvas" id="canvas"></div>
+
+    <div class="run" id="runPanel" hidden>
+      <div class="row">
+        <button type="button" class="btn" id="btnPlay">运行</button>
+        <button type="button" class="btn ghost" id="btnStep">单步</button>
+        <button type="button" class="btn ghost" id="btnReset">归零</button>
+        <span class="tclock" id="tclock"></span>
+      </div>
+      <p class="desc">每个时钟周期送入一组随机输入（主输入在第 0 级），读数表在每个输出的采样时刻填一行。黑色实线 = 1，浅色 = 0，橙色虚线 = X（源头此刻没有励磁或同时在翻转）。</p>
+      <div class="tbl"><table id="readout"></table></div>
+    </div>
+    <ul class="errs" id="errs" hidden></ul>
+  </section>
+
+  <div class="theory">
+    <section>
+      <h2>一根线上的树怎么搭最省</h2>
+      <p>驱动在第 L₀ 级，负载 i 要求在第 rᵢ 级拿到拷贝。从最深的负载往回推：</p>
+      <div class="formula">c(t) = s(t) + ⌈c(t+1) / k⌉
+可行 ⇔ c(L₀) ≤ 1
+单元数 = Σ ⌈c(t) / k⌉</div>
+      <p>s(t) 是第 t 级直接取走的拷贝数，k 是 splitter 最大扇出。每一级都取到了下界，所以对固定的负载相位它就是最少单元数<span class="tag strong">测试里与穷举对照</span>。
+        原版"先分裂、再各自补 buffer"会让很多层的 c(t) 大于 1，这就是全加器里多出 4 个 buffer 的来源。</p>
+    </section>
+    <section>
+      <h2>扇出 n 要推迟几级</h2>
+      <p>保守做法是所有负载统一推迟 ⌈log_k n⌉ 级。精确条件是 Kraft 不等式：</p>
+      <div class="formula">Σ k^−(rᵢ − L₀) ≤ 1</div>
+      <p>比如扇出 5、k=4：3 个负载隔 1 级、2 个隔 2 级就够了（3/4 + 2/16 ≤ 1）。新版先用保守约束做线性规划，再用精确判据压缩深度、局部搜索<span class="tag mid">13 个电路上深度与 mockturtle 一致</span>。</p>
+    </section>
+    <section>
+      <h2>为什么线性规划给出整数解</h2>
+      <p>把"buffer 数"近似成每根线上最长 buffer 链的长度，所有约束都是 xᵢ − xⱼ ≤ c 的差分形式。这类约束矩阵是全幺模的，单纯形法给出的顶点解天然是整数。
+        近似在扇出大于 1 时是下界，所以最后仍用精确的树代价挑最优<span class="tag mid">合计比 ASAP 少约 27%</span>。</p>
+    </section>
+    <section>
+      <h2>这个仿真器有多可信</h2>
+      <p>页面里的"通电运行"是离散的相位模型：读的源头必须恰好早一个相位，否则判 X。JoSIM 电路级仿真里，同相位相邻的两级有时也能正确传递，所以它偏保守<span class="tag weak">只在一个电路上观察到</span>。
+        真正的结论以 JoSIM 和你自己的单元库为准。</p>
+    </section>
+  </div>
+
+  <section class="load">
+    <h2 style="color: var(--ink)">看你自己的电路</h2>
+    <p>运行 <code>python -m v2v2j run 你的网表.v -o out</code>，把生成的 <code>*_aqfp.json</code> 拖进来或用下面的按钮选择。只显示新版结果，不做原版对比。</p>
+    <div class="row"><input type="file" id="fileIn" accept=".json,application/json"> <span id="fileMsg"></span></div>
+  </section>
+
+  <footer>
+    <span>相位色：<span class="sw" style="background:var(--p0)"></span>相位 0 <span class="sw" style="background:var(--p1);margin-left:10px"></span>相位 1 <span class="sw" style="background:var(--p2);margin-left:10px"></span>相位 2 <span class="sw" style="background:var(--p3);margin-left:10px"></span>相位 3。第 L 级用相位 (L−1) mod 4，主输入算第 0 级。5 GHz 时一个相位 50 ps。</span>
+    <span>数据由 <code>docs/build_demo.py</code> 用仓库里的 Python 实现预先算好嵌入；原版结果是把 2023 年 notebook 的代码原样跑出来的。</span>
+  </footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const PH = ['--p0', '--p1', '--p2', '--p3'];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const phaseOf = L => ((L - 1) % 4 + 4) % 4;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+const STEPS = [
+  {id: 'raw', name: '① 原始网表'},
+  {id: 'lv', name: '② 定级'},
+  {id: 'spl', name: '③ + splitter'},
+  {id: 'buf', name: '④ + buffer'},
+  {id: 'run', name: '⑤ 通电运行'},
+];
+const state = {ex: 0, ver: 'new', step: 'raw', sim: null, t: 0, timer: null, quizDone: {}};
+const quizSeen = {};
+try { Object.assign(quizSeen, JSON.parse(localStorage.getItem('aqfpQuiz') || '{}')); } catch (e) {}
+
+/* ---------------- 时钟带 ---------------- */
+function drawClock(cursor) {
+  const svg = document.getElementById('clockSvg');
+  const W = 800, H = 92, lanes = 4, lh = H / lanes, cycles = 4;
+  let s = '';
+  for (let p = 0; p < lanes; p++) {
+    const y0 = p * lh + lh * 0.82, amp = lh * 0.62;
+    let d = '';
+    for (let x = 0; x <= W; x += 4) {
+      const ph = x / W * cycles * 2 * Math.PI - p * Math.PI / 2;
+      const v = Math.max(0, Math.sin(ph));
+      d += (x ? 'L' : 'M') + x + ' ' + (y0 - v * amp).toFixed(1);
+    }
+    s += `<path d="${d}" fill="none" stroke="var(${PH[p]})" stroke-width="2"/>`;
+    s += `<line x1="0" x2="${W}" y1="${y0}" y2="${y0}" stroke="var(--grid)" stroke-width="1"/>`;
+  }
+  if (cursor != null) {
+    const x = ((cursor % 16) + 0.5) / 16 * W;
+    s += `<line x1="${x}" x2="${x}" y1="0" y2="${H}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+  }
+  svg.innerHTML = s;
+  document.getElementById('clockLegend').innerHTML = [0, 1, 2, 3].map(p =>
+    `<span><span class="sw" style="background:var(${PH[p]})"></span>相位 ${p}：第 ${p + 1}、${p + 5}、${p + 9}… 级</span>`).join('');
+}
+
+/* ---------------- 数据视图 ---------------- */
+function ex() { return DATA.examples[state.ex]; }
+function ver() { return state.ver === 'old' ? ex().old : ex().new; }
+
+function viewCells(v, step) {
+  const show = c => step === 'buf' || step === 'run' || c.o === 'logic' || (step === 'spl' && c.o === 'splitter');
+  const drv = {};
+  for (const c of v.cells) for (const n of Object.values(c.q)) drv[n] = c;
+  const vis = v.cells.filter(show);
+  const visSet = new Set(vis.map(c => c.n));
+  // 隐藏单元当导线：一路追到可见的驱动
+  const src = net => {
+    let n = net, guard = 0;
+    while (drv[n] && !visSet.has(drv[n].n) && guard++ < 999) { const c = drv[n]; n = Object.values(c.i)[0]; }
+    return n;
+  };
+  return {vis, drv, src};
+}
+
+function rankLevels(cells, pis) {
+  // 原始网表没有相位概念：按逻辑深度排一下，只为好看
+  const drv = {}; cells.forEach(c => Object.values(c.q).forEach(n => drv[n] = c));
+  const lv = {};
+  const get = c => {
+    if (lv[c.n] != null) return lv[c.n];
+    lv[c.n] = 1;
+    let m = 0;
+    for (const n of Object.values(c.i)) if (drv[n]) m = Math.max(m, get(drv[n]));
+    return lv[c.n] = m + 1;
+  };
+  cells.forEach(get);
+  return lv;
+}
+
+function layout(v, step) {
+  const raw = step === 'raw';
+  const cellsAll = raw ? ex().logic.cells : v.cells;
+  const V = raw ? {vis: cellsAll, drv: {}, src: n => n} : viewCells(v, step);
+  if (raw) cellsAll.forEach(c => Object.values(c.q).forEach(n => V.drv[n] = c));
+  const lv = raw ? rankLevels(cellsAll, ex().logic.pis) : Object.fromEntries(V.vis.map(c => [c.n, c.L]));
+  const maxL = Math.max(0, ...Object.values(lv));
+  const D = raw ? maxL : v.depth;
+  const cols = {};
+  const pis = raw ? ex().logic.pis : v.pis;
+  const pos = raw ? ex().logic.pos : v.pos;
+  const alias = (raw ? ex().logic.alias : v.alias) || {};
+  const nodes = {};
+  pis.forEach((p, i) => { nodes['PI:' + p] = {id: 'PI:' + p, kind: 'pi', label: p, L: 0, y: i}; });
+  for (const c of V.vis) nodes[c.n] = {id: c.n, kind: c.r, cell: c, label: c.c, L: lv[c.n]};
+  pos.forEach(p => { nodes['PO:' + p] = {id: 'PO:' + p, kind: 'po', label: p, L: Math.max(D, maxL) + 1}; });
+  const nodeOfNet = net => {
+    const s = V.src(net);
+    if (V.drv[s] && nodes[V.drv[s].n]) return nodes[V.drv[s].n];
+    if (nodes['PI:' + s]) return nodes['PI:' + s];
+    return null;
+  };
+  const edges = [];
+  for (const c of V.vis) for (const [pin, net] of Object.entries(c.i)) {
+    const a = nodeOfNet(net); if (a) edges.push({a, b: nodes[c.n], net: V.src(net), rawNet: net});
+  }
+  for (const p of pos) {
+    const net = alias[p] || p; const a = nodeOfNet(net);
+    if (a) edges.push({a, b: nodes['PO:' + p], net: V.src(net), rawNet: net, po: true});
+  }
+  // 扇出统计（以可见网线为单位）
+  const fan = {};
+  edges.forEach(e => fan[e.a.id + '|' + e.net] = (fan[e.a.id + '|' + e.net] || 0) + 1);
+  edges.forEach(e => { e.fan = fan[e.a.id + '|' + e.net]; e.gap = e.b.L - e.a.L; });
+  // 列内排序：前驱 y 的重心
+  for (const n of Object.values(nodes)) (cols[n.L] = cols[n.L] || []).push(n);
+  const keys = Object.keys(cols).map(Number).sort((x, y) => x - y);
+  const preds = {}; edges.forEach(e => (preds[e.b.id] = preds[e.b.id] || []).push(e.a));
+  for (const k of keys) {
+    const col = cols[k];
+    if (k > 0) col.forEach(n => { const ps = preds[n.id] || []; n.bc = ps.length ? ps.reduce((s, p) => s + (p.yy ?? 0), 0) / ps.length : 1e9; });
+    if (k > 0) col.sort((a, b) => a.bc - b.bc);
+    col.forEach((n, i) => n.yy = i);
+  }
+  return {nodes, edges, cols, keys, D: Math.max(D, maxL), raw};
+}
+
+/* ---------------- 绘图 ---------------- */
+const COLW = 104, ROWH = 40, PADX = 34, PADY = 40;
+function nodeSize(n) {
+  if (n.kind === 'buffer') return [30, 22];
+  if (n.kind === 'splitter') return [40, 26];
+  if (n.kind === 'pi' || n.kind === 'po') return [44, 24];
+  return [70, 28];
+}
+function render() {
+  const v = ver();
+  const host = document.getElementById('canvas');
+  if (state.ver === 'old' && v.crash) {
+    host.innerHTML = `<div class="note bad" style="margin:12px">原版直接抛出异常：<code>${esc(v.crash)}</code></div>`;
+    return;
+  }
+  const G = state.G = layout(v, state.step);
+  const maxRows = Math.max(...G.keys.map(k => G.cols[k].length));
+  const W = PADX * 2 + (G.D + 1) * COLW + 40, H = PADY + maxRows * ROWH + 24;
+  const pos = n => [PADX + n.L * COLW + 20, PADY + n.yy * ROWH + 14];
+  let s = '';
+  // 相位列底纹
+  for (let L = 0; L <= G.D + 1; L++) {
+    const x = PADX + L * COLW - 18;
+    const label = L === 0 ? '输入' : (L === G.D + 1 ? '输出' : (G.raw ? `深度 ${L}` : `L${L} · 相位${phaseOf(L)}`));
+    const col = (G.raw || L === 0 || L === G.D + 1) ? 'var(--ink-2)' : `var(${PH[phaseOf(L)]})`;
+    s += `<rect x="${x}" y="0" width="${COLW - 4}" height="${H}" fill="${(L % 2) ? 'var(--paper)' : 'transparent'}" opacity=".55"/>`;
+    s += `<text x="${x + 4}" y="18" font-size="11" font-family="var(--f-mono)" fill="${col}">${label}</text>`;
+  }
+  // 边
+  for (const e of G.edges) {
+    const [ax, ay] = pos(e.a), [bx, by] = pos(e.b);
+    const [aw] = nodeSize(e.a), [bw] = nodeSize(e.b);
+    const x1 = ax + aw / 2, x2 = bx - bw / 2, mx = (x1 + x2) / 2;
+    let cls = 'ok';
+    if (!G.raw) {
+      const phaseBad = e.po ? (e.a.L !== G.D && e.a.kind !== 'pi' || (e.a.kind === 'pi' && G.D !== 0)) : e.gap !== 1;
+      if (e.fan > 1) cls = 'fan'; else if (phaseBad) cls = 'gap';
+    }
+    e.cls = cls;
+    const stroke = cls === 'gap' ? 'var(--bad)' : cls === 'fan' ? 'var(--warn)' : 'var(--ink-2)';
+    const dash = cls === 'fan' ? '5 4' : '';
+    s += `<path data-net="${esc(e.rawNet)}" data-src="${esc(e.a.id)}" d="M${x1} ${ay} C${mx} ${ay} ${mx} ${by} ${x2} ${by}" fill="none" stroke="${stroke}" stroke-width="${cls === 'ok' ? 1.4 : 2}" stroke-dasharray="${dash}" opacity="${cls === 'ok' ? .75 : 1}"/>`;
+  }
+  // 节点
+  for (const n of Object.values(G.nodes)) {
+    const [x, y] = pos(n), [w, h] = nodeSize(n);
+    const ph = n.L > 0 && !G.raw && n.kind !== 'po' ? `var(${PH[phaseOf(n.L)]})` : 'var(--ink-2)';
+    let shape;
+    if (n.kind === 'pi' || n.kind === 'po') shape = `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="12" fill="var(--sheet)" stroke="var(--ink)" stroke-width="1.2"/>`;
+    else if (n.kind === 'splitter') shape = `<path d="M${x - w / 2} ${y} L${x} ${y - h / 2} L${x + w / 2} ${y} L${x} ${y + h / 2} Z" fill="var(--sheet)" stroke="${ph}" stroke-width="2"/>`;
+    else if (n.kind === 'buffer') shape = `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="4" fill="var(--sheet)" stroke="${ph}" stroke-width="1.6" stroke-dasharray="3 2"/>`;
+    else shape = `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="4" fill="var(--sheet)" stroke="${ph}" stroke-width="2"/>`;
+    const txt = n.kind === 'buffer' ? '' : n.kind === 'splitter' ? n.label.replace('spl', 's') : n.label;
+    s += `<g data-node="${esc(n.id)}"><title>${esc(n.id)}${n.cell ? ' · ' + esc(n.cell.c) + ' · L' + n.L : ''}</title>${shape}` +
+      `<text class="nlabel" x="${x}" y="${y + 4}" text-anchor="middle" font-size="${n.kind === 'pi' || n.kind === 'po' ? 12 : 11}" font-family="var(--f-mono)" fill="var(--ink)">${esc(txt)}</text>` +
+      `<text class="nval" x="${x + w / 2 + 2}" y="${y - h / 2 - 2}" font-size="12" font-weight="600" font-family="var(--f-mono)" fill="var(--ink)"></text></g>`;
+  }
+  host.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="网表图">${s}</svg>`;
+}
+
+/* ---------------- 统计与说明 ---------------- */
+function counts() {
+  const v = ver();
+  if (v.crash) return null;
+  const G = state.G || layout(v, 'buf');
+  let gap = 0, fan = 0;
+  const Gb = layout(v, 'buf');
+  // 在完整网表上数违规
+  Gb.edges.forEach(e => {
+    const bad = e.po ? (e.a.L !== Gb.D) : e.gap !== 1;
+    if (e.fan > 1) fan++; else if (bad) gap++;
+  });
+  return {gap, fan};
+}
+function renderStats() {
+  const v = ver();
+  const el = document.getElementById('stats');
+  if (v.crash) { el.innerHTML = ''; return; }
+  const c = counts();
+  const item = (val, lab, cls = '') => `<div class="stat ${cls}"><b>${val}</b><span>${lab}</span></div>`;
+  el.innerHTML = item(v.cells.filter(x => x.o === 'logic').length, '逻辑门') +
+    item(v.buffers, 'buffer') + item(v.splitters, 'splitter') + item(v.depth, '深度（输出相位）') +
+    item(c.gap, '相位违规的连线', c.gap ? 'bad' : 'good') + item(c.fan, '扇出违规的连线', c.fan ? 'bad' : 'good');
+}
+function renderNote() {
+  const v = ver();
+  const el = document.getElementById('stepNote');
+  const old = state.ver === 'old';
+  el.classList.remove('bad');
+  if (v.crash) { el.textContent = '这个电路原版跑不完。切回"新版"看完整流程。'; el.classList.add('bad'); return; }
+  const txt = {
+    raw: '原始门级网表：只有逻辑门，还没有相位的概念。列只是按逻辑深度排的。',
+    lv: old ? '原版给每个门定的级数。红线：两端相差不是 1 级（要补 buffer 却没补对的地方会一直红下去）；橙色虚线：一个输出接了多个负载。'
+            : '新版先在"最小可行深度"下给逻辑门定级（考虑了 splitter 要占的级），再在 ASAP / ALAP / 线性规划 三种解里用精确代价挑最省的。红线和橙线是接下来要靠 buffer、splitter 修好的地方。',
+    spl: '加上 splitter：每根有多个负载的线换成一棵 splitter 树。buffer 暂时画成导线。',
+    buf: old ? '原版的最终结果。若还有红线或橙线，说明它没满足 AQFP 的约束——下一步通电就能看到后果。'
+             : '新版的最终结果：每根线恰好一个负载，每条边恰好跨一个相位，所有输出在同一相位取出。',
+    run: '通电：时钟一相一相往前走，被激励的单元会亮起该相位的颜色并算出新值。'
+  }[state.step];
+  el.textContent = txt;
+  if (old && state.step !== 'raw' && (counts().gap || counts().fan)) el.classList.add('bad');
+  document.getElementById('keys').innerHTML = state.step === 'raw' ? '' :
+    `<span><i style="border-color:var(--ink-2)"></i>正常</span><span><i style="border-color:var(--bad)"></i>相位差 ≠ 1</span>` +
+    `<span><i style="border-color:var(--warn);border-top-style:dashed"></i>一个输出驱动多个负载</span>` +
+    `<span>▭ 门　◇ splitter　┅ buffer（虚线框）</span>`;
+  const errs = document.getElementById('errs');
+  if (old && v.errors && v.errors.length && state.step === 'buf') {
+    errs.hidden = false;
+    errs.innerHTML = '<li><b>独立校验器的报告（前几条）</b></li>' + v.errors.slice(0, 8).map(e => `<li>${esc(e)}</li>`).join('');
+  } else errs.hidden = true;
+}
+
+/* ---------------- 仿真 ---------------- */
+function evalCell(type, ins) {
+  const d = DATA.lib[type]; const out = {};
+  const xs = d.i.filter(p => ins[p] == null);
+  for (const o of d.q) {
+    let val;
+    for (let m = 0; m < (1 << xs.length); m++) {
+      const v = {...ins}; xs.forEach((p, j) => v[p] = (m >> j) & 1);
+      let idx = 0; d.i.forEach(p => idx = idx * 2 + v[p]);
+      const r = d.t[o][idx];
+      if (val === undefined) val = r; else if (val !== r) { val = null; break; }
+    }
+    out[o] = val;
+  }
+  return out;
+}
+function combEval(v, vec) {
+  const val = {"1'b0": 0, "1'b1": 1, ...vec};
+  const drv = {}; v.cells.forEach(c => Object.values(c.q).forEach(n => drv[n] = c));
+  const done = new Set();
+  const need = net => { if (val[net] === undefined && drv[net]) run(drv[net]); return val[net]; };
+  const run = c => {
+    if (done.has(c.n)) return; done.add(c.n);
+    const ins = {}; for (const [p, n] of Object.entries(c.i)) ins[p] = need(n);
+    const o = evalCell(c.c, ins); for (const [p, n] of Object.entries(c.q)) val[n] = o[p];
+  };
+  const out = {}; for (const p of v.pos) out[p] = need((v.alias || {})[p] || p);
+  return out;
+}
+function buildSim() {
+  const v = ver(), logic = ex().logic;
+  const N = 10;
+  let seed = 12345 + state.ex * 7;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) >> 16 & 1;
+  const stream = Array.from({length: N}, () => Object.fromEntries(v.pis.map(p => [p, rnd()])));
+  const expected = stream.map(vec => combEval(logic, vec));
+  const D = v.depth;
+  const srcL = {}; v.pis.forEach(p => srcL[p] = 0);
+  v.cells.forEach(c => Object.values(c.q).forEach(n => srcL[n] = c.L));
+  const T = 4 * (N + 1) + D + 2;
+  const last = {}; // net -> {t, v}
+  const frames = [];
+  const read = (net, t, L) => {
+    if (net === "1'b0") return 0; if (net === "1'b1") return 1;
+    const Ls = srcL[net]; if (Ls == null) return null;
+    if (((L - Ls) % 4 + 4) % 4 !== 1) return null;
+    const w = last[net]; return w && w.t === t - 1 ? w.v : null;
+  };
+  const order = [...v.cells].sort((a, b) => a.L - b.L);
+  const rows = [];
+  for (let t = 0; t < T; t++) {
+    if (t % 4 === 0) { const vec = stream[t / 4]; v.pis.forEach(p => last[p] = {t, v: vec ? vec[p] : null}); }
+    const active = new Set(), vals = {};
+    for (const c of order) {
+      if (((c.L - t) % 4 + 4) % 4 !== 0) continue;
+      const ins = {}; for (const [p, n] of Object.entries(c.i)) ins[p] = read(n, t, c.L);
+      const o = evalCell(c.c, ins);
+      for (const [p, n] of Object.entries(c.q)) last[n] = {t, v: o[p]};
+      active.add(c.n);
+    }
+    // 此刻每根线的值（源头在保持期才有值）
+    for (const [n, w] of Object.entries(last)) if (t - w.t <= 1) vals[n] = w.v;
+    const k = (t - D - 1) / 4;
+    let row = null;
+    if (Number.isInteger(k) && k >= 0 && k < N) {
+      row = {k, vec: stream[k], exp: expected[k], got: {}};
+      for (const p of v.pos) row.got[p] = read((v.alias || {})[p] || p, t, D + 1);
+      rows.push(row);
+    }
+    frames.push({t, active, vals, row});
+  }
+  return {frames, rows, N, D, v};
+}
+function paintFrame() {
+  const sim = state.sim; if (!sim) return;
+  const t = Math.min(state.t, sim.frames.length - 1);
+  const f = sim.frames[t];
+  const svg = document.querySelector('#canvas svg'); if (!svg) return;
+  const one = 'var(--one)', zero = 'var(--zero)';
+  svg.querySelectorAll('path[data-net]').forEach(p => {
+    const v = f.vals[p.dataset.net];
+    if (p.dataset.base === undefined) p.dataset.base = p.getAttribute('stroke') + '|' + p.getAttribute('stroke-dasharray');
+    const [bs, bd] = p.dataset.base.split('|');
+    if (v === 1) { p.setAttribute('stroke', one); p.setAttribute('stroke-width', 2.4); p.setAttribute('stroke-dasharray', ''); }
+    else if (v === 0) { p.setAttribute('stroke', zero); p.setAttribute('stroke-width', 2); p.setAttribute('stroke-dasharray', ''); }
+    else if (v === null) { p.setAttribute('stroke', 'var(--warn)'); p.setAttribute('stroke-width', 2); p.setAttribute('stroke-dasharray', '2 3'); }
+    else { p.setAttribute('stroke', bs); p.setAttribute('stroke-width', 1.2); p.setAttribute('stroke-dasharray', bd); p.setAttribute('opacity', .35); return; }
+    p.setAttribute('opacity', 1);
+  });
+  svg.querySelectorAll('g[data-node]').forEach(g => {
+    const id = g.dataset.node, shape = g.firstElementChild.nextElementSibling;
+    const c = sim.v.cells.find(x => x.n === id);
+    const val = g.querySelector('.nval');
+    if (c) {
+      const on = f.active.has(id);
+      shape.setAttribute('fill', on ? `var(${PH[phaseOf(c.L)]})` : 'var(--sheet)');
+      shape.setAttribute('fill-opacity', on ? .28 : 1);
+      const net = Object.values(c.q)[0]; const v = f.vals[net];
+      val.textContent = v === undefined ? '' : v === null ? 'X' : v;
+      val.setAttribute('fill', v === null ? 'var(--warn)' : 'var(--ink)');
+    } else if (id.startsWith('PI:')) {
+      const v = f.vals[id.slice(3)]; val.textContent = v === undefined ? '' : v;
+    }
+  });
+  const cyc = Math.floor(t / 4), ph = t % 4;
+  document.getElementById('tclock').textContent =
+    `t = ${t} 相位步 · 第 ${cyc} 周期 · 第 ${t} × 50 ps = ${t * 50} ps @ 5 GHz · 此刻被激励：第 ${[...new Set(sim.v.cells.filter(c => f.active.has(c.n)).map(c => c.L))].join('、') || '—'} 级`;
+  drawClock(t);
+  // 读数表
+  const shown = sim.rows.filter(r => sim.frames.findIndex(x => x.row === r) <= t);
+  const pis = sim.v.pis, pos = sim.v.pos;
+  const short = a => a.length > 8 ? a.join('').slice(0, 24) : a.join(' ');
+  let h = `<tr><th>周期</th><th>输入 ${esc(pis.length > 8 ? '(' + pis.length + ' 位)' : pis.join(' '))}</th><th>期望 ${esc(pos.length > 8 ? '' : pos.join(' '))}</th><th>读到</th><th></th></tr>`;
+  for (const r of shown) {
+    const exp = pos.map(p => r.exp[p]), got = pos.map(p => r.got[p] == null ? 'X' : r.got[p]);
+    const hasX = got.includes('X'), ok = !hasX && exp.every((e, i) => e === got[i]);
+    h += `<tr><td>${r.k}</td><td>${short(pis.map(p => r.vec[p]))}</td><td>${short(exp)}</td><td>${short(got)}</td>` +
+      `<td class="${ok ? 'ok' : hasX ? 'x' : 'ng'}">${ok ? '✓' : hasX ? 'X' : '✗ 错位'}</td></tr>`;
+  }
+  if (!shown.length) h += `<tr><td colspan="5">第一组输入要经过 ${sim.D} 个相位才到输出……</td></tr>`;
+  document.getElementById('readout').innerHTML = h;
+}
+function stopRun() { if (state.timer) { clearInterval(state.timer); state.timer = null; } document.getElementById('btnPlay').textContent = '运行'; }
+
+/* ---------------- 交互 ---------------- */
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = STEPS.map(s =>
+    `<button class="tab" role="tab" type="button" aria-selected="${s.id === state.step}" data-step="${s.id}">${s.name}</button>`).join('');
+}
+function renderQuiz() {
+  const q = ex().quiz, box = document.getElementById('quiz');
+  if (!q) { box.hidden = true; return; }
+  box.hidden = false;
+  document.getElementById('quizQ').textContent = q.q;
+  const done = quizSeen[ex().id];
+  document.getElementById('quizOpts').innerHTML = q.options.map((o, i) =>
+    `<button type="button" class="opt ${done != null ? (i === q.answer ? 'right' : (i === done ? 'wrong' : '')) : ''}" data-i="${i}" ${done != null ? 'disabled' : ''}>${String.fromCharCode(65 + i)}. ${esc(o)}</button>`).join('');
+  const a = document.getElementById('quizA');
+  a.hidden = done == null;
+  if (done != null) a.innerHTML = `<b>${done === q.answer ? '答对了。' : '答案是 ' + String.fromCharCode(65 + q.answer) + '。'}</b>${esc(q.explain)}`;
+}
+function refresh() {
+  stopRun();
+  document.getElementById('exDesc').textContent = ex().desc;
+  document.getElementById('vNew').setAttribute('aria-pressed', state.ver === 'new');
+  document.getElementById('vOld').setAttribute('aria-pressed', state.ver === 'old');
+  document.getElementById('vOld').disabled = !ex().old;
+  renderTabs(); renderQuiz(); render(); renderStats(); renderNote();
+  const run = state.step === 'run' && !ver().crash;
+  document.getElementById('runPanel').hidden = !run;
+  state.sim = null; state.t = 0;
+  if (run) { state.sim = buildSim(); paintFrame(); } else drawClock(null);
+}
+function renderChips() {
+  document.getElementById('exChips').innerHTML = '<span class="label">电路</span>' + DATA.examples.map((e, i) =>
+    `<button type="button" class="chip" aria-pressed="${i === state.ex}" data-ex="${i}">${esc(e.title)}</button>`).join('');
+}
+document.getElementById('exChips').addEventListener('click', e => {
+  const b = e.target.closest('[data-ex]'); if (!b) return;
+  state.ex = +b.dataset.ex; if (!ex().old) state.ver = 'new'; renderChips(); refresh();
+});
+document.getElementById('tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-step]'); if (!b) return; state.step = b.dataset.step; refresh();
+});
+document.getElementById('vNew').onclick = () => { state.ver = 'new'; refresh(); };
+document.getElementById('vOld').onclick = () => { state.ver = 'old'; refresh(); };
+document.getElementById('quizOpts').addEventListener('click', e => {
+  const b = e.target.closest('[data-i]'); if (!b) return;
+  quizSeen[ex().id] = +b.dataset.i;
+  try { localStorage.setItem('aqfpQuiz', JSON.stringify(quizSeen)); } catch (err) {}
+  renderQuiz();
+});
+document.getElementById('btnPlay').onclick = () => {
+  if (state.timer) { stopRun(); return; }
+  document.getElementById('btnPlay').textContent = '暂停';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  state.timer = setInterval(() => {
+    if (state.t >= state.sim.frames.length - 1) { stopRun(); return; }
+    state.t++; paintFrame();
+  }, reduce ? 900 : 420);
+};
+document.getElementById('btnStep').onclick = () => { stopRun(); if (state.sim && state.t < state.sim.frames.length - 1) { state.t++; paintFrame(); } };
+document.getElementById('btnReset').onclick = () => { stopRun(); state.t = 0; paintFrame(); };
+
+/* 读入用户自己的 *_aqfp.json */
+function loadJson(text, name) {
+  const msg = document.getElementById('fileMsg');
+  try {
+    const j = JSON.parse(text);
+    const pis = j.ports.filter(p => p.direction === 'input').flatMap(p => p.bits);
+    const pos = j.ports.filter(p => p.direction === 'output').flatMap(p => p.bits);
+    const cells = j.cells.map(c => ({n: c.name, c: c.type, r: c.role, o: c.origin, L: c.level, i: c.inputs, q: c.outputs}));
+    const unknown = [...new Set(cells.map(c => c.c).filter(t => !DATA.lib[t]))];
+    if (unknown.length) throw new Error('页面里没有这些单元的真值表：' + unknown.join('、'));
+    const depth = Math.max(0, ...cells.map(c => c.L));
+    const v = {pis, pos, alias: j.po_aliases || {}, cells, depth,
+      buffers: cells.filter(c => c.r === 'buffer').length, splitters: cells.filter(c => c.r === 'splitter').length, errors: []};
+    const logic = {pis, pos, alias: v.alias, cells: cells.filter(c => c.o === 'logic')};
+    // 逻辑视图里把 buffer/splitter 当导线
+    const drv = {}; cells.forEach(c => Object.values(c.q).forEach(n => drv[n] = c));
+    const root = n => { let g = 0; while (drv[n] && drv[n].o !== 'logic' && g++ < 999) n = Object.values(drv[n].i)[0]; return n; };
+    logic.cells = logic.cells.map(c => ({...c, i: Object.fromEntries(Object.entries(c.i).map(([p, n]) => [p, root(n)]))}));
+    logic.alias = Object.fromEntries(pos.map(p => [p, root(v.alias[p] || p)]));
+    DATA.examples.push({id: 'user-' + Date.now(), title: '你的：' + (j.module || name), desc: `从 ${name} 读入：${cells.length} 个单元。`, quiz: null, logic, new: v, old: null});
+    state.ex = DATA.examples.length - 1; state.ver = 'new';
+    renderChips(); refresh();
+    msg.textContent = '已读入。';
+  } catch (err) { msg.textContent = '读不了这个文件：' + err.message; }
+}
+document.getElementById('fileIn').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => loadJson(r.result, f.name); r.readAsText(f);
+});
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault(); const f = e.dataTransfer.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => loadJson(r.result, f.name); r.readAsText(f);
+});
+
+renderChips(); refresh();
+</script>

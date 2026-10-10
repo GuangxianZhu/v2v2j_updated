@@ -1,0 +1,679 @@
+<title>AQFP 相位实验台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;900&display=swap">
+<style>
+/* 布局：上方一条"示波器"式的四相时钟带；主体是按相位分列的网表图，图下是读数表。纸面偏冷蓝，四个相位各有一色，强调色就是相位色本身。 */
+:root {
+  --paper: #eef2f5;
+  --sheet: #fbfcfd;
+  --ink: #18222e;
+  --ink-2: #4a5867;
+  --rule: #cdd6df;
+  --grid: #e2e8ee;
+  --p0: #0d7f86;
+  --p1: #b9760f;
+  --p2: #b1386f;
+  --p3: #4651c4;
+  --bad: #c62d2d;
+  --warn: #d4770c;
+  --good: #1f8a4c;
+  --one: #18222e;
+  --zero: #9aa7b4;
+  --f-display: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --f-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10161d; --sheet: #161e27; --ink: #e3e9ef; --ink-2: #9fb0c0; --rule: #2c3846; --grid: #1f2933;
+    --p0: #3fbac1; --p1: #e7a43e; --p2: #e2689f; --p3: #8a93f2; --bad: #ff6b6b; --warn: #f2a14a; --good: #4fc985;
+    --one: #e3e9ef; --zero: #56677a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10161d; --sheet: #161e27; --ink: #e3e9ef; --ink-2: #9fb0c0; --rule: #2c3846; --grid: #1f2933;
+  --p0: #3fbac1; --p1: #e7a43e; --p2: #e2689f; --p3: #8a93f2; --bad: #ff6b6b; --warn: #f2a14a; --good: #4fc985;
+  --one: #e3e9ef; --zero: #56677a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.65; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.25; }
+h1 { font-size: clamp(28px, 4.4vw, 44px); font-weight: 900; letter-spacing: .02em; }
+h2 { font-size: 22px; font-weight: 600; }
+h3 { font-size: 16px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--f-mono); font-size: .92em; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+.lede { color: var(--ink-2); font-size: 16px; }
+header { display: grid; gap: 10px; }
+
+/* 时钟带 */
+.clock { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; display: grid; gap: 6px; }
+.clock svg { width: 100%; height: 92px; display: block; }
+.clock .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.rule { border-top: 2px solid var(--ink); padding-top: 10px; display: grid; gap: 6px; }
+.rule p { font-size: 14px; color: var(--ink-2); }
+
+/* 工作台 */
+.bench { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 18px; display: grid; gap: 16px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { font: inherit; font-size: 14px; border: 1px solid var(--rule); background: transparent; color: var(--ink); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.chip:focus-visible, .btn:focus-visible, .opt:focus-visible, .tab:focus-visible { outline: 2px solid var(--p3); outline-offset: 2px; }
+.label { font-size: 12px; color: var(--ink-2); letter-spacing: .06em; min-width: 3.5em; }
+.desc { color: var(--ink-2); font-size: 14px; }
+
+.quiz { border: 1px dashed var(--rule); border-radius: 6px; padding: 12px 14px; display: grid; gap: 10px; }
+.quiz .opts { display: grid; gap: 6px; }
+.opt { font: inherit; text-align: left; border: 1px solid var(--rule); border-radius: 5px; background: var(--paper); color: var(--ink); padding: 6px 10px; cursor: pointer; }
+.opt.right { border-color: var(--good); box-shadow: inset 3px 0 0 var(--good); }
+.opt.wrong { border-color: var(--bad); box-shadow: inset 3px 0 0 var(--bad); }
+.opt:disabled { cursor: default; }
+.reveal { font-size: 14px; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--rule); }
+.tab { font: inherit; font-size: 14px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--ink-2); padding: 6px 12px; cursor: pointer; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 500; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.seg button { font: inherit; font-size: 14px; border: 0; background: transparent; color: var(--ink-2); padding: 4px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+.stat { border-left: 2px solid var(--rule); padding-left: 10px; }
+.stat b { display: block; font-family: var(--f-mono); font-size: 22px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.stat span { font-size: 12px; color: var(--ink-2); }
+.stat.bad { border-left-color: var(--bad); } .stat.bad b { color: var(--bad); }
+.stat.good { border-left-color: var(--good); }
+
+.note { font-size: 14px; background: var(--paper); border-radius: 6px; padding: 10px 12px; }
+.note.bad { box-shadow: inset 3px 0 0 var(--bad); }
+.canvas { overflow-x: auto; border: 1px solid var(--grid); border-radius: 6px; background: var(--sheet); }
+.canvas svg { display: block; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); }
+.keys i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: 3px; margin-right: 5px; }
+
+.run { display: grid; gap: 10px; }
+.btn { font: inherit; font-size: 14px; border: 1px solid var(--ink); background: var(--ink); color: var(--sheet); border-radius: 5px; padding: 5px 14px; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--ink); }
+.tclock { font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 4px 10px; border-bottom: 1px solid var(--grid); text-align: left; white-space: nowrap; }
+th { font-family: var(--f-body); font-weight: 500; color: var(--ink-2); font-size: 12px; }
+td.ok { color: var(--good); } td.ng { color: var(--bad); font-weight: 600; } td.x { color: var(--warn); font-weight: 600; }
+.errs { font-size: 13px; color: var(--ink-2); margin: 0; padding-left: 1.2em; display: grid; gap: 2px; }
+
+.theory { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+.theory section { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.theory p { font-size: 14px; color: var(--ink-2); }
+.formula { font-family: var(--f-mono); font-size: 13px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 5px; padding: 8px 10px; overflow-x: auto; white-space: pre; }
+.tag { font-family: var(--f-mono); font-size: 11px; letter-spacing: .05em; border: 1px solid currentColor; border-radius: 3px; padding: 0 5px; margin-left: 6px; vertical-align: 2px; }
+.tag.strong { color: var(--good); } .tag.mid { color: var(--p1); } .tag.weak { color: var(--p2); }
+.load { display: grid; gap: 8px; font-size: 14px; color: var(--ink-2); }
+footer { font-size: 13px; color: var(--ink-2); display: grid; gap: 4px; }
+a { color: var(--p3); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">v2v2j · AQFP buffer / splitter insertion</div>
+    <h1>AQFP 相位实验台</h1>
+    <p class="lede">绝热量子磁通参量器（AQFP）的每个门都由交流励磁按相位驱动，信号一级一级往前"接力"。
+      插 buffer 和 splitter，就是让每一棒都恰好落在下一相位上。下面用同一组电路对比原版算法和新版算法，你可以一步步看，也可以通电跑起来。</p>
+  </header>
+
+  <div class="clock" aria-label="四相时钟示意">
+    <svg id="clockSvg" viewBox="0 0 800 92" preserveAspectRatio="none" role="img" aria-label="四相励磁波形"></svg>
+    <div class="legend" id="clockLegend"></div>
+  </div>
+
+  <div class="rules">
+    <div class="rule"><h3>约束一：每个输出只能驱动一个负载</h3>
+      <p>AQFP 门的输出电流只有几十微安，分给两个负载就判不清 0/1。要驱动多个负载，必须先过 splitter（1 进 2~4 出），而 splitter 自己也占一个相位。</p></div>
+    <div class="rule"><h3>约束二：所有输入必须来自上一相位</h3>
+      <p>第 L 级的门只在相位 (L−1) mod 4 被激励，它读的是上一相位刚算好、仍在保持的输出。路径短了就得补 buffer，否则读到的不是没励磁的空值，就是别的周期的数据。</p></div>
+    <div class="rule"><h3>输出对齐</h3>
+      <p>所有主输出在同一相位取出，电路才能每个时钟周期吃一组新输入（整体就是一条门级流水线）。</p></div>
+  </div>
+
+  <section class="bench" aria-label="实验台">
+    <div class="row" id="exChips" role="group" aria-label="选择示例"></div>
+    <p class="desc" id="exDesc"></p>
+
+    <div class="quiz" id="quiz" hidden>
+      <div><span class="eyebrow">先预测</span></div>
+      <p id="quizQ"></p>
+      <div class="opts" id="quizOpts"></div>
+      <p class="reveal" id="quizA" hidden></p>
+    </div>
+
+    <div class="row">
+      <span class="label">算法</span>
+      <div class="seg" role="group" aria-label="算法版本">
+        <button type="button" id="vNew" aria-pressed="true">新版</button>
+        <button type="button" id="vOld" aria-pressed="false">原版（2023）</button>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="stats" id="stats"></div>
+    <div class="note" id="stepNote"></div>
+    <div class="keys" id="keys"></div>
+    <div class="canvas" id="canvas"></div>
+
+    <div class="run" id="runPanel" hidden>
+      <div class="row">
+        <button type="button" class="btn" id="btnPlay">运行</button>
+        <button type="button" class="btn ghost" id="btnStep">单步</button>
+        <button type="button" class="btn ghost" id="btnReset">归零</button>
+        <span class="tclock" id="tclock"></span>
+      </div>
+      <p class="desc">每个时钟周期送入一组随机输入（主输入在第 0 级），读数表在每个输出的采样时刻填一行。黑色实线 = 1，浅色 = 0，橙色虚线 = X（源头此刻没有励磁或同时在翻转）。</p>
+      <div class="tbl"><table id="readout"></table></div>
+    </div>
+    <ul class="errs" id="errs" hidden></ul>
+  </section>
+
+  <div class="theory">
+    <section>
+      <h2>一根线上的树怎么搭最省</h2>
+      <p>驱动在第 L₀ 级，负载 i 要求在第 rᵢ 级拿到拷贝。从最深的负载往回推：</p>
+      <div class="formula">c(t) = s(t) + ⌈c(t+1) / k⌉
+可行 ⇔ c(L₀) ≤ 1
+单元数 = Σ ⌈c(t) / k⌉</div>
+      <p>s(t) 是第 t 级直接取走的拷贝数，k 是 splitter 最大扇出。每一级都取到了下界，所以对固定的负载相位它就是最少单元数<span class="tag strong">测试里与穷举对照</span>。
+        原版"先分裂、再各自补 buffer"会让很多层的 c(t) 大于 1，这就是全加器里多出 4 个 buffer 的来源。</p>
+    </section>
+    <section>
+      <h2>扇出 n 要推迟几级</h2>
+      <p>保守做法是所有负载统一推迟 ⌈log_k n⌉ 级。精确条件是 Kraft 不等式：</p>
+      <div class="formula">Σ k^−(rᵢ − L₀) ≤ 1</div>
+      <p>比如扇出 5、k=4：3 个负载隔 1 级、2 个隔 2 级就够了（3/4 + 2/16 ≤ 1）。新版先用保守约束做线性规划，再用精确判据压缩深度、局部搜索<span class="tag mid">13 个电路上深度与 mockturtle 一致</span>。</p>
+    </section>
+    <section>
+      <h2>为什么线性规划给出整数解</h2>
+      <p>把"buffer 数"近似成每根线上最长 buffer 链的长度，所有约束都是 xᵢ − xⱼ ≤ c 的差分形式。这类约束矩阵是全幺模的，单纯形法给出的顶点解天然是整数。
+        近似在扇出大于 1 时是下界，所以最后仍用精确的树代价挑最优<span class="tag mid">合计比 ASAP 少约 27%</span>。</p>
+    </section>
+    <section>
+      <h2>这个仿真器有多可信</h2>
+      <p>页面里的"通电运行"是离散的相位模型：读的源头必须恰好早一个相位，否则判 X。JoSIM 电路级仿真里，同相位相邻的两级有时也能正确传递，所以它偏保守<span class="tag weak">只在一个电路上观察到</span>。
+        真正的结论以 JoSIM 和你自己的单元库为准。</p>
+    </section>
+  </div>
+
+  <section class="load">
+    <h2 style="color: var(--ink)">看你自己的电路</h2>
+    <p>运行 <code>python -m v2v2j run 你的网表.v -o out</code>，把生成的 <code>*_aqfp.json</code> 拖进来或用下面的按钮选择。只显示新版结果，不做原版对比。</p>
+    <div class="row"><input type="file" id="fileIn" accept=".json,application/json"> <span id="fileMsg"></span></div>
+  </section>
+
+  <footer>
+    <span>相位色：<span class="sw" style="background:var(--p0)"></span>相位 0 <span class="sw" style="background:var(--p1);margin-left:10px"></span>相位 1 <span class="sw" style="background:var(--p2);margin-left:10px"></span>相位 2 <span class="sw" style="background:var(--p3);margin-left:10px"></span>相位 3。第 L 级用相位 (L−1) mod 4，主输入算第 0 级。5 GHz 时一个相位 50 ps。</span>
+    <span>数据由 <code>docs/build_demo.py</code> 用仓库里的 Python 实现预先算好嵌入；原版结果是把 2023 年 notebook 的代码原样跑出来的。</span>
+  </footer>
+</div>
+
+<script>
+const DATA = {"lib":{"and_bb":{"i":["a","b"],"q":["q"],"r":"gate","t":{"q":[0,0,0,1]}},"and_bi":{"i":["a","b"],"q":["q"],"r":"gate","t":{"q":[0,0,1,0]}},"and_ib":{"i":["a","b"],"q":["q"],"r":"gate","t":{"q":[0,1,0,0]}},"and_ii":{"i":["a","b"],"q":["q"],"r":"gate","t":{"q":[1,0,0,0]}},"bfr":{"i":["a"],"q":["q"],"r":"buffer","t":{"q":[0,1]}},"bfrL":{"i":["a"],"q":["q"],"r":"buffer","t":{"q":[0,1]}},"inv":{"i":["a"],"q":["q"],"r":"inverter","t":{"q":[1,0]}},"maj_bbb":{"i":["a","b","c"],"q":["q"],"r":"gate","t":{"q":[0,0,0,1,0,1,1,1]}},"maj_bbi":{"i":["a","b","c"],"q":["q"],"r":"gate","t":{"q":[0,0,1,0,1,0,1,1]}},"maj_bib":{"i":["a","b","c"],"q":["q"],"r":"gate","t":{"q":[0,1,0,0,1,1,0,1]}},"maj_bii":{"i":["a","b","c"],"q":["q"],"r":"gate","t":{"q":[1,0,0,0,1,1,1,0]}},"maj_ibb":{"i":["a","b","c"],"q":["q"],"r":"gate","t":{"q":[0,1,1,1,0,0,0,1]}},"maj_ibi":{"i":["a","b","c"],"q":["q"],"r":"gate","t":{"q":[1,0,1,1,0,0,1,0]}},"maj_iib":{"i":["a","b","c"],"q":["q"],"r":"gate","t":{"q":[1,1,0,1,0,1,0,0]}},"maj_iii":{"i":["a","b","c"],"q":["q"],"r":"gate","t":{"q":[1,1,1,0,1,0,0,0]}},"or_bb":{"i":["a","b"],"q":["q"],"r":"gate","t":{"q":[0,1,1,1]}},"or_bi":{"i":["a","b"],"q":["q"],"r":"gate","t":{"q":[1,0,1,1]}},"or_ib":{"i":["a","b"],"q":["q"],"r":"gate","t":{"q":[1,1,0,1]}},"or_ii":{"i":["a","b"],"q":["q"],"r":"gate","t":{"q":[1,1,1,0]}},"spl2":{"i":["a"],"q":["x","y"],"r":"splitter","t":{"x":[0,1],"y":[0,1]}},"spl3":{"i":["a"],"q":["x","y","z"],"r":"splitter","t":{"x":[0,1],"y":[0,1],"z":[0,1]}},"spl3L":{"i":["a"],"q":["x","y","z"],"r":"splitter","t":{"x":[0,1],"y":[0,1],"z":[0,1]}},"spl4":{"i":["a"],"q":["w","x","y","z"],"r":"splitter","t":{"w":[0,1],"x":[0,1],"y":[0,1],"z":[0,1]}},"spl4L":{"i":["a"],"q":["w","x","y","z"],"r":"splitter","t":{"w":[0,1],"x":[0,1],"y":[0,1],"z":[0,1]}}},"examples":[{"id":"adder","title":"全加器（原仓库自带）","desc":"原版当年就是用它调试的：7 个门，a、b、c 都有扇出。","quiz":{"q":"原版在这个电路上插了 14 个 buffer、6 个 splitter。新版会插多少个 buffer？","options":["还是 14 个","10 个","6 个","0 个"],"answer":1,"explain":"c 先分裂成两份、再各补 4 个 buffer，要 8 个；先补 4 个、最后一级再分裂只要 4 个。省下的 4 个就是 14→10。"},"logic":{"pis":["a","b","c"],"pos":["cout","s"],"alias":{},"cells":[{"n":"n_05_","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"b","b":"a"},"q":{"q":"n_01_"}},{"n":"n_06_","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"b","b":"a"},"q":{"q":"n_02_"}},{"n":"n_07_","c":"or_bi","r":"gate","o":"logic","L":null,"i":{"a":"n_01_","b":"n_02_"},"q":{"q":"n_03_"}},{"n":"n_08_","c":"and_bi","r":"gate","o":"logic","L":null,"i":{"a":"c","b":"n_03_"},"q":{"q":"n_04_"}},{"n":"n_09_","c":"or_bi","r":"gate","o":"logic","L":null,"i":{"a":"c","b":"n_03_"},"q":{"q":"n_00_"}},{"n":"n_10_","c":"and_bi","r":"gate","o":"logic","L":null,"i":{"a":"n_00_","b":"n_04_"},"q":{"q":"s"}},{"n":"n_11_","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"n_04_","b":"n_01_"},"q":{"q":"cout"}}]},"new":{"pis":["a","b","c"],"pos":["cout","s"],"alias":{},"cells":[{"n":"bfr_c_L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"c"},"q":{"q":"c__L1_0"}},{"n":"spl_a_L1","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"a"},"q":{"x":"a__L1_0","y":"a__L1_1"}},{"n":"spl_b_L1","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"b"},"q":{"x":"b__L1_0","y":"b__L1_1"}},{"n":"bfr_c_L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"c__L1_0"},"q":{"q":"c__L2_0"}},{"n":"n_05_","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"b__L1_0","b":"a__L1_0"},"q":{"q":"n_01_"}},{"n":"n_06_","c":"or_bb","r":"gate","o":"logic","L":2,"i":{"a":"b__L1_1","b":"a__L1_1"},"q":{"q":"n_02_"}},{"n":"bfr_c_L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"c__L2_0"},"q":{"q":"c__L3_0"}},{"n":"bfr_n_02__L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"n_02_"},"q":{"q":"n_02___L3_0"}},{"n":"spl_n_01__L3","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n_01_"},"q":{"x":"n_01___L3_0","y":"n_01___L3_1"}},{"n":"bfr_c_L4","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"c__L3_0"},"q":{"q":"c__L4_0"}},{"n":"bfr_n_01__L4","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n_01___L3_1"},"q":{"q":"n_01___L4_0"}},{"n":"n_07_","c":"or_bi","r":"gate","o":"logic","L":4,"i":{"a":"n_01___L3_0","b":"n_02___L3_0"},"q":{"q":"n_03_"}},{"n":"bfr_n_01__L5","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n_01___L4_0"},"q":{"q":"n_01___L5_0"}},{"n":"spl_c_L5","c":"spl2","r":"splitter","o":"splitter","L":5,"i":{"a":"c__L4_0"},"q":{"x":"c__L5_0","y":"c__L5_1"}},{"n":"spl_n_03__L5","c":"spl2","r":"splitter","o":"splitter","L":5,"i":{"a":"n_03_"},"q":{"x":"n_03___L5_0","y":"n_03___L5_1"}},{"n":"bfr_n_01__L6","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n_01___L5_0"},"q":{"q":"n_01___L6_0"}},{"n":"n_08_","c":"and_bi","r":"gate","o":"logic","L":6,"i":{"a":"c__L5_0","b":"n_03___L5_0"},"q":{"q":"n_04_"}},{"n":"n_09_","c":"or_bi","r":"gate","o":"logic","L":6,"i":{"a":"c__L5_1","b":"n_03___L5_1"},"q":{"q":"n_00_"}},{"n":"bfr_n_00__L7","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n_00_"},"q":{"q":"n_00___L7_0"}},{"n":"bfr_n_01__L7","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n_01___L6_0"},"q":{"q":"n_01___L7_0"}},{"n":"spl_n_04__L7","c":"spl2","r":"splitter","o":"splitter","L":7,"i":{"a":"n_04_"},"q":{"x":"n_04___L7_0","y":"n_04___L7_1"}},{"n":"n_10_","c":"and_bi","r":"gate","o":"logic","L":8,"i":{"a":"n_00___L7_0","b":"n_04___L7_0"},"q":{"q":"s"}},{"n":"n_11_","c":"or_bb","r":"gate","o":"logic","L":8,"i":{"a":"n_04___L7_1","b":"n_01___L7_0"},"q":{"q":"cout"}}],"depth":8,"method":"asap","buffers":10,"splitters":6,"errors":[]},"old":{"pis":["a","b","c"],"pos":["cout","s"],"alias":{},"cells":[{"n":"splitter_a","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"a"},"q":{"x":"a_split_0","y":"a_split_1"}},{"n":"splitter_b","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"b"},"q":{"x":"b_split_0","y":"b_split_1"}},{"n":"splitter_c","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"c"},"q":{"x":"c_split_0","y":"c_split_1"}},{"n":"buffer_c_split_0_0","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"c_split_0"},"q":{"q":"c_split_0_buffer_0"}},{"n":"buffer_c_split_1_0","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"c_split_1"},"q":{"q":"c_split_1_buffer_0"}},{"n":"n_05_","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"b_split_0","b":"a_split_0"},"q":{"q":"n_01_"}},{"n":"n_06_","c":"or_bb","r":"gate","o":"logic","L":2,"i":{"a":"b_split_1","b":"a_split_1"},"q":{"q":"n_02_"}},{"n":"buffer_c_split_0_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"c_split_0_buffer_0"},"q":{"q":"c_split_0_buffer_0_buffer_1"}},{"n":"buffer_c_split_1_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"c_split_1_buffer_0"},"q":{"q":"c_split_1_buffer_0_buffer_1"}},{"n":"buffer_n_02__0","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"n_02_"},"q":{"q":"n_02__buffer_0"}},{"n":"splitter_n_01_","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n_01_"},"q":{"x":"n_01__split_0","y":"n_01__split_1"}},{"n":"buffer_c_split_0_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"c_split_0_buffer_0_buffer_1"},"q":{"q":"c_split_0_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_c_split_1_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"c_split_1_buffer_0_buffer_1"},"q":{"q":"c_split_1_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n_01__split_1_0","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n_01__split_1"},"q":{"q":"n_01__split_1_buffer_0"}},{"n":"n_07_","c":"or_bi","r":"gate","o":"logic","L":4,"i":{"a":"n_01__split_0","b":"n_02__buffer_0"},"q":{"q":"n_03_"}},{"n":"buffer_c_split_0_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"c_split_0_buffer_0_buffer_1_buffer_2"},"q":{"q":"c_split_0_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_c_split_1_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"c_split_1_buffer_0_buffer_1_buffer_2"},"q":{"q":"c_split_1_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_n_01__split_1_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n_01__split_1_buffer_0"},"q":{"q":"n_01__split_1_buffer_0_buffer_1"}},{"n":"splitter_n_03_","c":"spl2","r":"splitter","o":"splitter","L":5,"i":{"a":"n_03_"},"q":{"x":"n_03__split_0","y":"n_03__split_1"}},{"n":"buffer_n_01__split_1_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n_01__split_1_buffer_0_buffer_1"},"q":{"q":"n_01__split_1_buffer_0_buffer_1_buffer_2"}},{"n":"n_08_","c":"and_bi","r":"gate","o":"logic","L":6,"i":{"a":"c_split_0_buffer_0_buffer_1_buffer_2_buffer_3","b":"n_03__split_0"},"q":{"q":"n_04_"}},{"n":"n_09_","c":"or_bi","r":"gate","o":"logic","L":6,"i":{"a":"c_split_1_buffer_0_buffer_1_buffer_2_buffer_3","b":"n_03__split_1"},"q":{"q":"n_00_"}},{"n":"buffer_n_00__0","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n_00_"},"q":{"q":"n_00__buffer_0"}},{"n":"buffer_n_01__split_1_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n_01__split_1_buffer_0_buffer_1_buffer_2"},"q":{"q":"n_01__split_1_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"splitter_n_04_","c":"spl2","r":"splitter","o":"splitter","L":7,"i":{"a":"n_04_"},"q":{"x":"n_04__split_0","y":"n_04__split_1"}},{"n":"n_10_","c":"and_bi","r":"gate","o":"logic","L":8,"i":{"a":"n_00__buffer_0","b":"n_04__split_0"},"q":{"q":"s"}},{"n":"n_11_","c":"or_bb","r":"gate","o":"logic","L":8,"i":{"a":"n_04__split_1","b":"n_01__split_1_buffer_0_buffer_1_buffer_2_buffer_3"},"q":{"q":"cout"}}],"depth":8,"buffers":14,"splitters":6,"errors":[]}},{"id":"reconv","title":"重汇聚","desc":"a 经两条长短不同的路到达 g1：一条直达，一条先过 g2。","quiz":{"q":"原版的 assign_levels 用 DFS、谁先访问到就定级。g1 在单元列表里排在 g2 前面，原版会把 g1 定在第几级？","options":["第 2 级（只看了 a→g1 这条短路）","第 3 级（最长路径）","第 1 级","报错"],"answer":0,"explain":"DFS 先从 a 走到 g1，给了 2；之后从 g2 再走到 g1 时，g1 已经有级数就不再更新。正确做法是 max(所有输入)+1 = 3。"},"logic":{"pis":["a","b"],"pos":["q"],"alias":{},"cells":[{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a","b":"w"},"q":{"q":"q"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a","b":"b"},"q":{"q":"w"}}]},"new":{"pis":["a","b"],"pos":["q"],"alias":{},"cells":[{"n":"bfr_b_L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"b"},"q":{"q":"b__L1_0"}},{"n":"spl_a_L1","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"a"},"q":{"x":"a__L1_0","y":"a__L1_1"}},{"n":"bfr_a_L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"a__L1_1"},"q":{"q":"a__L2_0"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"a__L1_0","b":"b__L1_0"},"q":{"q":"w"}},{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":3,"i":{"a":"a__L2_0","b":"w"},"q":{"q":"q"}}],"depth":3,"method":"asap","buffers":2,"splitters":1,"errors":[]},"old":{"pis":["a","b"],"pos":["q"],"alias":{},"cells":[{"n":"splitter_a","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"a"},"q":{"x":"a_split_0","y":"a_split_1"}},{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_split_0","b":"w"},"q":{"q":"q"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_split_1","b":"b"},"q":{"q":"w"}}],"depth":2,"buffers":0,"splitters":1,"errors":["相位不一致：g2(and_bb).b 的信号来自第 0 级，但该单元在第 2 级（需要第 1 级）","相位不一致：g1(and_bb).a 的信号来自第 1 级，但该单元在第 3 级（需要第 2 级）","g1 标注为第 2 级，结构推出第 3 级"]}},{"id":"pideep","title":"主输入直连深层门","desc":"c 没有扇出，直接接到第 2 级的 g2。","quiz":{"q":"c 在第 0 相位到达，g2 在第 2 级。原版会在 c 和 g2 之间插 buffer 吗？","options":["会，插 1 个","不会"],"answer":1,"explain":"原版的 add_buffers 只遍历'单元的输出脚'；主输入不是单元，所以永远轮不到它。原仓库的 adder 能过，只是因为 a、b、c 恰好都有扇出，先被 splitter 变成了单元。"},"logic":{"pis":["a","b","c"],"pos":["q"],"alias":{},"cells":[{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a","b":"b"},"q":{"q":"w"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"w","b":"c"},"q":{"q":"q"}}]},"new":{"pis":["a","b","c"],"pos":["q"],"alias":{},"cells":[{"n":"bfr_c_L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"c"},"q":{"q":"c__L1_0"}},{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":1,"i":{"a":"a","b":"b"},"q":{"q":"w"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"w","b":"c__L1_0"},"q":{"q":"q"}}],"depth":2,"method":"asap","buffers":1,"splitters":0,"errors":[]},"old":{"pis":["a","b","c"],"pos":["q"],"alias":{},"cells":[{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":1,"i":{"a":"a","b":"b"},"q":{"q":"w"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"w","b":"c"},"q":{"q":"q"}}],"depth":2,"buffers":0,"splitters":0,"errors":["相位不一致：g2(and_bb).b 的信号来自第 0 级，但该单元在第 2 级（需要第 1 级）"]}},{"id":"pointernal","title":"输出兼作内部信号","desc":"g1 的输出 p 既是主输出，又接到 g2。","quiz":{"q":"p 这根线有几个负载？","options":["1 个（g2）","2 个（g2 和主输出 p）"],"answer":1,"explain":"主输出本身也是负载。原版统计扇出时只数了单元输入脚，于是 p 少了一个 splitter；它也不做输出对齐，p 和 q 在不同相位出来。"},"logic":{"pis":["a","b","c"],"pos":["p","q"],"alias":{},"cells":[{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a","b":"b"},"q":{"q":"p"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"p","b":"c"},"q":{"q":"q"}}]},"new":{"pis":["a","b","c"],"pos":["p","q"],"alias":{},"cells":[{"n":"bfr_c_L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"c"},"q":{"q":"c__L1_0"}},{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":1,"i":{"a":"a","b":"b"},"q":{"q":"p__int"}},{"n":"bfr_c_L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"c__L1_0"},"q":{"q":"c__L2_0"}},{"n":"spl_p_L2","c":"spl2","r":"splitter","o":"splitter","L":2,"i":{"a":"p__int"},"q":{"x":"p__L2_0","y":"p__L2_1"}},{"n":"bfr_p_L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"p__L2_1"},"q":{"q":"p"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":3,"i":{"a":"p__L2_0","b":"c__L2_0"},"q":{"q":"q"}}],"depth":3,"method":"asap","buffers":3,"splitters":1,"errors":[]},"old":{"pis":["a","b","c"],"pos":["p","q"],"alias":{},"cells":[{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":1,"i":{"a":"a","b":"b"},"q":{"q":"p"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"p","b":"c"},"q":{"q":"q"}}],"depth":2,"buffers":0,"splitters":0,"errors":["扇出违规：网线 p 驱动了 2 个负载 ['g2.a', '输出 p']（AQFP 每个输出只能驱动 1 个）","相位不一致：g2(and_bb).b 的信号来自第 0 级，但该单元在第 2 级（需要第 1 级）","主输出相位不对齐：{'p': 1, 'q': 2}"]}},{"id":"fanout5","title":"扇出 5","desc":"a、b 各驱动 5 个门。","quiz":{"q":"splitter 最多 4 路。新版给 a 搭的树最少几个单元？","options":["1 个 spl4 + 1 个 bfr","1 个 spl2 + 1 个 spl4","2 个 spl4","原版和新版都会报错"],"answer":1,"explain":"先 spl2 分两份：一份直接给 g1（于是 g1 在第 2 级），另一份再 spl4 给 g2~g5（第 3 级）。g1 早一级出来，再补 1 个 buffer 对齐输出。原版遇到扇出 >4 直接 ValueError。"},"logic":{"pis":["a","b"],"pos":["q1","q2","q3","q4","q5"],"alias":{},"cells":[{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a","b":"b"},"q":{"q":"q1"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a","b":"b"},"q":{"q":"q2"}},{"n":"g3","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a","b":"b"},"q":{"q":"q3"}},{"n":"g4","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a","b":"b"},"q":{"q":"q4"}},{"n":"g5","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a","b":"b"},"q":{"q":"q5"}}]},"new":{"pis":["a","b"],"pos":["q1","q2","q3","q4","q5"],"alias":{},"cells":[{"n":"spl_a_L1","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"a"},"q":{"x":"a__L1_0","y":"a__L1_1"}},{"n":"spl_b_L1","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"b"},"q":{"x":"b__L1_0","y":"b__L1_1"}},{"n":"g3","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"a__L1_0","b":"b__L1_0"},"q":{"q":"q3__int"}},{"n":"spl_a_L2","c":"spl4","r":"splitter","o":"splitter","L":2,"i":{"a":"a__L1_1"},"q":{"w":"a__L2_0","x":"a__L2_1","y":"a__L2_2","z":"a__L2_3"}},{"n":"spl_b_L2","c":"spl4","r":"splitter","o":"splitter","L":2,"i":{"a":"b__L1_1"},"q":{"w":"b__L2_0","x":"b__L2_1","y":"b__L2_2","z":"b__L2_3"}},{"n":"bfr_q3_L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"q3__int"},"q":{"q":"q3"}},{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":3,"i":{"a":"a__L2_0","b":"b__L2_0"},"q":{"q":"q1"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":3,"i":{"a":"a__L2_1","b":"b__L2_1"},"q":{"q":"q2"}},{"n":"g4","c":"and_bb","r":"gate","o":"logic","L":3,"i":{"a":"a__L2_2","b":"b__L2_2"},"q":{"q":"q4"}},{"n":"g5","c":"and_bb","r":"gate","o":"logic","L":3,"i":{"a":"a__L2_3","b":"b__L2_3"},"q":{"q":"q5"}}],"depth":3,"method":"asap+refine","buffers":1,"splitters":4,"errors":[]},"old":{"crash":"ValueError: More than 4 cells are connected to the same wire. No suitable splitter defined."}},{"id":"c17","title":"ISCAS c17（Yosys 综合）","desc":"6 个 NAND 的经典小电路，经 Yosys 综合、NOT 全部吸收进输入极性。","quiz":null,"logic":{"pis":["N1","N2","N3","N6","N7"],"pos":["N22","N23"],"alias":{},"cells":[{"n":"g0","c":"or_ii","r":"gate","o":"logic","L":null,"i":{"a":"N3","b":"N6"},"q":{"q":"n11"}},{"n":"g1","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"N2","b":"N7"},"q":{"q":"n12"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"N2","b":"n11"},"q":{"q":"n13"}},{"n":"g3","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n11","b":"n12"},"q":{"q":"N23"}},{"n":"g4","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"N3","b":"N1"},"q":{"q":"n14"}},{"n":"g5","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"n13","b":"n14"},"q":{"q":"N22"}}]},"new":{"pis":["N1","N2","N3","N6","N7"],"pos":["N22","N23"],"alias":{},"cells":[{"n":"bfr_N1_L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"N1"},"q":{"q":"N1__L1_0"}},{"n":"bfr_N6_L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"N6"},"q":{"q":"N6__L1_0"}},{"n":"bfr_N7_L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"N7"},"q":{"q":"N7__L1_0"}},{"n":"spl_N2_L1","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"N2"},"q":{"x":"N2__L1_0","y":"N2__L1_1"}},{"n":"spl_N3_L1","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"N3"},"q":{"x":"N3__L1_0","y":"N3__L1_1"}},{"n":"bfr_N2_L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"N2__L1_1"},"q":{"q":"N2__L2_0"}},{"n":"g0","c":"or_ii","r":"gate","o":"logic","L":2,"i":{"a":"N3__L1_0","b":"N6__L1_0"},"q":{"q":"n11"}},{"n":"g1","c":"or_bb","r":"gate","o":"logic","L":2,"i":{"a":"N2__L1_0","b":"N7__L1_0"},"q":{"q":"n12"}},{"n":"g4","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"N3__L1_1","b":"N1__L1_0"},"q":{"q":"n14"}},{"n":"bfr_N2_L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"N2__L2_0"},"q":{"q":"N2__L3_0"}},{"n":"bfr_n12_L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"n12"},"q":{"q":"n12__L3_0"}},{"n":"bfr_n14_L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"n14"},"q":{"q":"n14__L3_0"}},{"n":"spl_n11_L3","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n11"},"q":{"x":"n11__L3_0","y":"n11__L3_1"}},{"n":"bfr_n14_L4","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n14__L3_0"},"q":{"q":"n14__L4_0"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":4,"i":{"a":"N2__L3_0","b":"n11__L3_0"},"q":{"q":"n13"}},{"n":"g3","c":"and_bb","r":"gate","o":"logic","L":4,"i":{"a":"n11__L3_1","b":"n12__L3_0"},"q":{"q":"N23__int"}},{"n":"bfr_N23_L5","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"N23__int"},"q":{"q":"N23"}},{"n":"g5","c":"or_bb","r":"gate","o":"logic","L":5,"i":{"a":"n13","b":"n14__L4_0"},"q":{"q":"N22"}}],"depth":5,"method":"asap","buffers":9,"splitters":3,"errors":[]},"old":{"pis":["N1","N2","N3","N6","N7"],"pos":["N22","N23"],"alias":{},"cells":[{"n":"g4","c":"and_bb","r":"gate","o":"logic","L":1,"i":{"a":"N3_split_1","b":"N1"},"q":{"q":"n14"}},{"n":"splitter_N2","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"N2"},"q":{"x":"N2_split_0","y":"N2_split_1"}},{"n":"splitter_N3","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"N3"},"q":{"x":"N3_split_0","y":"N3_split_1"}},{"n":"g0","c":"or_ii","r":"gate","o":"logic","L":2,"i":{"a":"N3_split_0","b":"N6"},"q":{"q":"n11"}},{"n":"g1","c":"or_bb","r":"gate","o":"logic","L":2,"i":{"a":"N2_split_0","b":"N7"},"q":{"q":"n12"}},{"n":"g2","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"N2_split_1","b":"n11_split_0"},"q":{"q":"n13"}},{"n":"g5","c":"or_bb","r":"gate","o":"logic","L":2,"i":{"a":"n13","b":"n14"},"q":{"q":"N22"}},{"n":"g3","c":"and_bb","r":"gate","o":"logic","L":3,"i":{"a":"n11_split_1","b":"n12"},"q":{"q":"N23"}},{"n":"splitter_n11","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n11"},"q":{"x":"n11_split_0","y":"n11_split_1"}}],"depth":3,"buffers":0,"splitters":3,"errors":["相位不一致：g0(or_ii).b 的信号来自第 0 级，但该单元在第 2 级（需要第 1 级）","相位不一致：g4(and_bb).b 的信号来自第 0 级，但该单元在第 2 级（需要第 1 级）","g4 标注为第 1 级，结构推出第 2 级","相位不一致：g1(or_bb).b 的信号来自第 0 级，但该单元在第 2 级（需要第 1 级）","相位不一致：g2(and_bb).a 的信号来自第 1 级，但该单元在第 4 级（需要第 3 级）","g2 标注为第 2 级，结构推出第 4 级","相位不一致：g3(and_bb).b 的信号来自第 2 级，但该单元在第 4 级（需要第 3 级）","g3 标注为第 3 级，结构推出第 4 级","相位不一致：g5(or_bb).b 的信号来自第 2 级，但该单元在第 5 级（需要第 4 级）","g5 标注为第 2 级，结构推出第 5 级","主输出相位不对齐：{'N22': 5, 'N23': 4}"]}},{"id":"add4","title":"4 位加法器（Yosys 综合）","desc":"assign {cout,s} = a + b + cin，39 个门。","quiz":null,"logic":{"pis":["a_0_","a_1_","a_2_","a_3_","b_0_","b_1_","b_2_","b_3_","cin"],"pos":["s_0_","s_1_","s_2_","s_3_","cout"],"alias":{},"cells":[{"n":"g0","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a_3_","b":"b_3_"},"q":{"q":"n23"}},{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a_2_","b":"b_2_"},"q":{"q":"n25"}},{"n":"g10","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"cin","b":"n33"},"q":{"q":"n35"}},{"n":"g11","c":"or_bi","r":"gate","o":"logic","L":null,"i":{"a":"n34","b":"cin"},"q":{"q":"n36"}},{"n":"g12","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n30","b":"n36"},"q":{"q":"n37"}},{"n":"g13","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"n29","b":"n35"},"q":{"q":"n38"}},{"n":"g14","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"a_1_","b":"b_1_"},"q":{"q":"n39"}},{"n":"g15","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n28","b":"n39"},"q":{"q":"n40"}},{"n":"g16","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n38","b":"n40"},"q":{"q":"n42"}},{"n":"g17","c":"or_bi","r":"gate","o":"logic","L":null,"i":{"a":"n37","b":"n40"},"q":{"q":"n43"}},{"n":"g18","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n28","b":"n43"},"q":{"q":"n44"}},{"n":"g19","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"n27","b":"n42"},"q":{"q":"n45"}},{"n":"g2","c":"or_ii","r":"gate","o":"logic","L":null,"i":{"a":"a_2_","b":"b_2_"},"q":{"q":"n26"}},{"n":"g20","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"a_2_","b":"b_2_"},"q":{"q":"n46"}},{"n":"g21","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n26","b":"n46"},"q":{"q":"n47"}},{"n":"g22","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n45","b":"n47"},"q":{"q":"n49"}},{"n":"g23","c":"or_bi","r":"gate","o":"logic","L":null,"i":{"a":"n44","b":"n47"},"q":{"q":"n50"}},{"n":"g24","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n26","b":"n50"},"q":{"q":"n51"}},{"n":"g25","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"n25","b":"n49"},"q":{"q":"n52"}},{"n":"g26","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"a_3_","b":"b_3_"},"q":{"q":"n53"}},{"n":"g27","c":"and_bi","r":"gate","o":"logic","L":null,"i":{"a":"n53","b":"n23"},"q":{"q":"n54"}},{"n":"g28","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n52","b":"n54"},"q":{"q":"n56"}},{"n":"g29","c":"or_bi","r":"gate","o":"logic","L":null,"i":{"a":"n51","b":"n54"},"q":{"q":"n57"}},{"n":"g3","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a_1_","b":"b_1_"},"q":{"q":"n27"}},{"n":"g30","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"n23","b":"n56"},"q":{"q":"cout"}},{"n":"g31","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"n52","b":"n54"},"q":{"q":"n58"}},{"n":"g32","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n57","b":"n58"},"q":{"q":"s_3_"}},{"n":"g33","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"n45","b":"n47"},"q":{"q":"n59"}},{"n":"g34","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n50","b":"n59"},"q":{"q":"s_2_"}},{"n":"g35","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"n38","b":"n40"},"q":{"q":"n60"}},{"n":"g36","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n43","b":"n60"},"q":{"q":"s_1_"}},{"n":"g37","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"cin","b":"n33"},"q":{"q":"n61"}},{"n":"g38","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n36","b":"n61"},"q":{"q":"s_0_"}},{"n":"g4","c":"or_ii","r":"gate","o":"logic","L":null,"i":{"a":"a_1_","b":"b_1_"},"q":{"q":"n28"}},{"n":"g5","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"a_0_","b":"b_0_"},"q":{"q":"n29"}},{"n":"g6","c":"or_ii","r":"gate","o":"logic","L":null,"i":{"a":"a_0_","b":"b_0_"},"q":{"q":"n30"}},{"n":"g7","c":"or_bb","r":"gate","o":"logic","L":null,"i":{"a":"a_0_","b":"b_0_"},"q":{"q":"n31"}},{"n":"g8","c":"and_bb","r":"gate","o":"logic","L":null,"i":{"a":"n30","b":"n31"},"q":{"q":"n33"}},{"n":"g9","c":"or_bi","r":"gate","o":"logic","L":null,"i":{"a":"n29","b":"n31"},"q":{"q":"n34"}}]},"new":{"pis":["a_0_","a_1_","a_2_","a_3_","b_0_","b_1_","b_2_","b_3_","cin"],"pos":["s_0_","s_1_","s_2_","s_3_","cout"],"alias":{},"cells":[{"n":"bfr_a_1__L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"a_1_"},"q":{"q":"a_1___L1_0"}},{"n":"bfr_a_2__L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"a_2_"},"q":{"q":"a_2___L1_0"}},{"n":"bfr_a_3__L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"a_3_"},"q":{"q":"a_3___L1_0"}},{"n":"bfr_b_1__L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"b_1_"},"q":{"q":"b_1___L1_0"}},{"n":"bfr_b_2__L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"b_2_"},"q":{"q":"b_2___L1_0"}},{"n":"bfr_b_3__L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"b_3_"},"q":{"q":"b_3___L1_0"}},{"n":"bfr_cin_L1","c":"bfr","r":"buffer","o":"buffer","L":1,"i":{"a":"cin"},"q":{"q":"cin__L1_0"}},{"n":"spl_a_0__L1","c":"spl3","r":"splitter","o":"splitter","L":1,"i":{"a":"a_0_"},"q":{"x":"a_0___L1_0","y":"a_0___L1_1","z":"a_0___L1_2"}},{"n":"spl_b_0__L1","c":"spl3","r":"splitter","o":"splitter","L":1,"i":{"a":"b_0_"},"q":{"x":"b_0___L1_0","y":"b_0___L1_1","z":"b_0___L1_2"}},{"n":"bfr_a_1__L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"a_1___L1_0"},"q":{"q":"a_1___L2_0"}},{"n":"bfr_a_2__L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"a_2___L1_0"},"q":{"q":"a_2___L2_0"}},{"n":"bfr_a_3__L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"a_3___L1_0"},"q":{"q":"a_3___L2_0"}},{"n":"bfr_b_1__L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"b_1___L1_0"},"q":{"q":"b_1___L2_0"}},{"n":"bfr_b_2__L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"b_2___L1_0"},"q":{"q":"b_2___L2_0"}},{"n":"bfr_b_3__L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"b_3___L1_0"},"q":{"q":"b_3___L2_0"}},{"n":"bfr_cin_L2","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"cin__L1_0"},"q":{"q":"cin__L2_0"}},{"n":"g5","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_0___L1_0","b":"b_0___L1_0"},"q":{"q":"n29"}},{"n":"g6","c":"or_ii","r":"gate","o":"logic","L":2,"i":{"a":"a_0___L1_1","b":"b_0___L1_1"},"q":{"q":"n30"}},{"n":"g7","c":"or_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_0___L1_2","b":"b_0___L1_2"},"q":{"q":"n31"}},{"n":"bfr_a_1__L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"a_1___L2_0"},"q":{"q":"a_1___L3_0"}},{"n":"bfr_a_2__L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"a_2___L2_0"},"q":{"q":"a_2___L3_0"}},{"n":"bfr_a_3__L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"a_3___L2_0"},"q":{"q":"a_3___L3_0"}},{"n":"bfr_b_1__L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"b_1___L2_0"},"q":{"q":"b_1___L3_0"}},{"n":"bfr_b_2__L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"b_2___L2_0"},"q":{"q":"b_2___L3_0"}},{"n":"bfr_b_3__L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"b_3___L2_0"},"q":{"q":"b_3___L3_0"}},{"n":"bfr_cin_L3","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"cin__L2_0"},"q":{"q":"cin__L3_0"}},{"n":"spl_n29_L3","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n29"},"q":{"x":"n29__L3_0","y":"n29__L3_1"}},{"n":"spl_n30_L3","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n30"},"q":{"x":"n30__L3_0","y":"n30__L3_1"}},{"n":"spl_n31_L3","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n31"},"q":{"x":"n31__L3_0","y":"n31__L3_1"}},{"n":"bfr_a_2__L4","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"a_2___L3_0"},"q":{"q":"a_2___L4_0"}},{"n":"bfr_a_3__L4","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"a_3___L3_0"},"q":{"q":"a_3___L4_0"}},{"n":"bfr_b_2__L4","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"b_2___L3_0"},"q":{"q":"b_2___L4_0"}},{"n":"bfr_b_3__L4","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"b_3___L3_0"},"q":{"q":"b_3___L4_0"}},{"n":"bfr_n29_L4","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n29__L3_1"},"q":{"q":"n29__L4_0"}},{"n":"bfr_n30_L4","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n30__L3_1"},"q":{"q":"n30__L4_0"}},{"n":"g8","c":"and_bb","r":"gate","o":"logic","L":4,"i":{"a":"n30__L3_0","b":"n31__L3_0"},"q":{"q":"n33"}},{"n":"g9","c":"or_bi","r":"gate","o":"logic","L":4,"i":{"a":"n29__L3_0","b":"n31__L3_1"},"q":{"q":"n34"}},{"n":"spl_a_1__L4","c":"spl2","r":"splitter","o":"splitter","L":4,"i":{"a":"a_1___L3_0"},"q":{"x":"a_1___L4_0","y":"a_1___L4_1"}},{"n":"spl_b_1__L4","c":"spl2","r":"splitter","o":"splitter","L":4,"i":{"a":"b_1___L3_0"},"q":{"x":"b_1___L4_0","y":"b_1___L4_1"}},{"n":"spl_cin_L4","c":"spl2","r":"splitter","o":"splitter","L":4,"i":{"a":"cin__L3_0"},"q":{"x":"cin__L4_0","y":"cin__L4_1"}},{"n":"bfr_a_2__L5","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"a_2___L4_0"},"q":{"q":"a_2___L5_0"}},{"n":"bfr_a_3__L5","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"a_3___L4_0"},"q":{"q":"a_3___L5_0"}},{"n":"bfr_b_2__L5","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"b_2___L4_0"},"q":{"q":"b_2___L5_0"}},{"n":"bfr_b_3__L5","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"b_3___L4_0"},"q":{"q":"b_3___L5_0"}},{"n":"bfr_n29_L5","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n29__L4_0"},"q":{"q":"n29__L5_0"}},{"n":"bfr_n30_L5","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n30__L4_0"},"q":{"q":"n30__L5_0"}},{"n":"g11","c":"or_bi","r":"gate","o":"logic","L":5,"i":{"a":"n34","b":"cin__L4_0"},"q":{"q":"n36"}},{"n":"g4","c":"or_ii","r":"gate","o":"logic","L":5,"i":{"a":"a_1___L4_0","b":"b_1___L4_0"},"q":{"q":"n28"}},{"n":"spl_a_1__L5","c":"spl2","r":"splitter","o":"splitter","L":5,"i":{"a":"a_1___L4_1"},"q":{"x":"a_1___L5_0","y":"a_1___L5_1"}},{"n":"spl_b_1__L5","c":"spl2","r":"splitter","o":"splitter","L":5,"i":{"a":"b_1___L4_1"},"q":{"x":"b_1___L5_0","y":"b_1___L5_1"}},{"n":"spl_cin_L5","c":"spl2","r":"splitter","o":"splitter","L":5,"i":{"a":"cin__L4_1"},"q":{"x":"cin__L5_0","y":"cin__L5_1"}},{"n":"spl_n33_L5","c":"spl2","r":"splitter","o":"splitter","L":5,"i":{"a":"n33"},"q":{"x":"n33__L5_0","y":"n33__L5_1"}},{"n":"bfr_a_2__L6","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"a_2___L5_0"},"q":{"q":"a_2___L6_0"}},{"n":"bfr_a_3__L6","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"a_3___L5_0"},"q":{"q":"a_3___L6_0"}},{"n":"bfr_b_2__L6","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"b_2___L5_0"},"q":{"q":"b_2___L6_0"}},{"n":"bfr_b_3__L6","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"b_3___L5_0"},"q":{"q":"b_3___L6_0"}},{"n":"bfr_n29_L6","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n29__L5_0"},"q":{"q":"n29__L6_0"}},{"n":"bfr_n30_L6","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n30__L5_0"},"q":{"q":"n30__L6_0"}},{"n":"g10","c":"and_bb","r":"gate","o":"logic","L":6,"i":{"a":"cin__L5_0","b":"n33__L5_0"},"q":{"q":"n35"}},{"n":"g14","c":"or_bb","r":"gate","o":"logic","L":6,"i":{"a":"a_1___L5_0","b":"b_1___L5_0"},"q":{"q":"n39"}},{"n":"g3","c":"and_bb","r":"gate","o":"logic","L":6,"i":{"a":"a_1___L5_1","b":"b_1___L5_1"},"q":{"q":"n27"}},{"n":"g37","c":"or_bb","r":"gate","o":"logic","L":6,"i":{"a":"cin__L5_1","b":"n33__L5_1"},"q":{"q":"n61"}},{"n":"spl_n28_L6","c":"spl2","r":"splitter","o":"splitter","L":6,"i":{"a":"n28"},"q":{"x":"n28__L6_0","y":"n28__L6_1"}},{"n":"spl_n36_L6","c":"spl2","r":"splitter","o":"splitter","L":6,"i":{"a":"n36"},"q":{"x":"n36__L6_0","y":"n36__L6_1"}},{"n":"bfr_a_3__L7","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"a_3___L6_0"},"q":{"q":"a_3___L7_0"}},{"n":"bfr_b_3__L7","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"b_3___L6_0"},"q":{"q":"b_3___L7_0"}},{"n":"bfr_n27_L7","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n27"},"q":{"q":"n27__L7_0"}},{"n":"bfr_n28_L7","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n28__L6_1"},"q":{"q":"n28__L7_0"}},{"n":"g12","c":"and_bb","r":"gate","o":"logic","L":7,"i":{"a":"n30__L6_0","b":"n36__L6_0"},"q":{"q":"n37"}},{"n":"g13","c":"or_bb","r":"gate","o":"logic","L":7,"i":{"a":"n29__L6_0","b":"n35"},"q":{"q":"n38"}},{"n":"g15","c":"and_bb","r":"gate","o":"logic","L":7,"i":{"a":"n28__L6_0","b":"n39"},"q":{"q":"n40"}},{"n":"g38","c":"and_bb","r":"gate","o":"logic","L":7,"i":{"a":"n36__L6_1","b":"n61"},"q":{"q":"s_0___int"}},{"n":"spl_a_2__L7","c":"spl2","r":"splitter","o":"splitter","L":7,"i":{"a":"a_2___L6_0"},"q":{"x":"a_2___L7_0","y":"a_2___L7_1"}},{"n":"spl_b_2__L7","c":"spl2","r":"splitter","o":"splitter","L":7,"i":{"a":"b_2___L6_0"},"q":{"x":"b_2___L7_0","y":"b_2___L7_1"}},{"n":"bfr_a_3__L8","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"a_3___L7_0"},"q":{"q":"a_3___L8_0"}},{"n":"bfr_b_3__L8","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"b_3___L7_0"},"q":{"q":"b_3___L8_0"}},{"n":"bfr_n27_L8","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n27__L7_0"},"q":{"q":"n27__L8_0"}},{"n":"bfr_n28_L8","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n28__L7_0"},"q":{"q":"n28__L8_0"}},{"n":"bfr_n37_L8","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n37"},"q":{"q":"n37__L8_0"}},{"n":"bfr_s_0__L8","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"s_0___int"},"q":{"q":"s_0___L8_0"}},{"n":"g2","c":"or_ii","r":"gate","o":"logic","L":8,"i":{"a":"a_2___L7_0","b":"b_2___L7_0"},"q":{"q":"n26"}},{"n":"spl_a_2__L8","c":"spl2","r":"splitter","o":"splitter","L":8,"i":{"a":"a_2___L7_1"},"q":{"x":"a_2___L8_0","y":"a_2___L8_1"}},{"n":"spl_b_2__L8","c":"spl2","r":"splitter","o":"splitter","L":8,"i":{"a":"b_2___L7_1"},"q":{"x":"b_2___L8_0","y":"b_2___L8_1"}},{"n":"spl_n38_L8","c":"spl2","r":"splitter","o":"splitter","L":8,"i":{"a":"n38"},"q":{"x":"n38__L8_0","y":"n38__L8_1"}},{"n":"spl_n40_L8","c":"spl3","r":"splitter","o":"splitter","L":8,"i":{"a":"n40"},"q":{"x":"n40__L8_0","y":"n40__L8_1","z":"n40__L8_2"}},{"n":"bfr_a_3__L9","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"a_3___L8_0"},"q":{"q":"a_3___L9_0"}},{"n":"bfr_b_3__L9","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"b_3___L8_0"},"q":{"q":"b_3___L9_0"}},{"n":"bfr_n27_L9","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"n27__L8_0"},"q":{"q":"n27__L9_0"}},{"n":"bfr_n28_L9","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"n28__L8_0"},"q":{"q":"n28__L9_0"}},{"n":"bfr_s_0__L9","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"s_0___L8_0"},"q":{"q":"s_0___L9_0"}},{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":9,"i":{"a":"a_2___L8_0","b":"b_2___L8_0"},"q":{"q":"n25"}},{"n":"g16","c":"and_bb","r":"gate","o":"logic","L":9,"i":{"a":"n38__L8_0","b":"n40__L8_0"},"q":{"q":"n42"}},{"n":"g17","c":"or_bi","r":"gate","o":"logic","L":9,"i":{"a":"n37__L8_0","b":"n40__L8_1"},"q":{"q":"n43"}},{"n":"g20","c":"or_bb","r":"gate","o":"logic","L":9,"i":{"a":"a_2___L8_1","b":"b_2___L8_1"},"q":{"q":"n46"}},{"n":"g35","c":"or_bb","r":"gate","o":"logic","L":9,"i":{"a":"n38__L8_1","b":"n40__L8_2"},"q":{"q":"n60"}},{"n":"spl_n26_L9","c":"spl2","r":"splitter","o":"splitter","L":9,"i":{"a":"n26"},"q":{"x":"n26__L9_0","y":"n26__L9_1"}},{"n":"bfr_n25_L10","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"n25"},"q":{"q":"n25__L10_0"}},{"n":"bfr_n26_L10","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"n26__L9_1"},"q":{"q":"n26__L10_0"}},{"n":"bfr_n28_L10","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"n28__L9_0"},"q":{"q":"n28__L10_0"}},{"n":"bfr_n60_L10","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"n60"},"q":{"q":"n60__L10_0"}},{"n":"bfr_s_0__L10","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"s_0___L9_0"},"q":{"q":"s_0___L10_0"}},{"n":"g19","c":"or_bb","r":"gate","o":"logic","L":10,"i":{"a":"n27__L9_0","b":"n42"},"q":{"q":"n45"}},{"n":"g21","c":"and_bb","r":"gate","o":"logic","L":10,"i":{"a":"n26__L9_0","b":"n46"},"q":{"q":"n47"}},{"n":"spl_a_3__L10","c":"spl2","r":"splitter","o":"splitter","L":10,"i":{"a":"a_3___L9_0"},"q":{"x":"a_3___L10_0","y":"a_3___L10_1"}},{"n":"spl_b_3__L10","c":"spl2","r":"splitter","o":"splitter","L":10,"i":{"a":"b_3___L9_0"},"q":{"x":"b_3___L10_0","y":"b_3___L10_1"}},{"n":"spl_n43_L10","c":"spl2","r":"splitter","o":"splitter","L":10,"i":{"a":"n43"},"q":{"x":"n43__L10_0","y":"n43__L10_1"}},{"n":"bfr_n25_L11","c":"bfr","r":"buffer","o":"buffer","L":11,"i":{"a":"n25__L10_0"},"q":{"q":"n25__L11_0"}},{"n":"bfr_n26_L11","c":"bfr","r":"buffer","o":"buffer","L":11,"i":{"a":"n26__L10_0"},"q":{"q":"n26__L11_0"}},{"n":"bfr_s_0__L11","c":"bfr","r":"buffer","o":"buffer","L":11,"i":{"a":"s_0___L10_0"},"q":{"q":"s_0___L11_0"}},{"n":"g0","c":"and_bb","r":"gate","o":"logic","L":11,"i":{"a":"a_3___L10_0","b":"b_3___L10_0"},"q":{"q":"n23"}},{"n":"g18","c":"and_bb","r":"gate","o":"logic","L":11,"i":{"a":"n28__L10_0","b":"n43__L10_0"},"q":{"q":"n44"}},{"n":"g26","c":"or_bb","r":"gate","o":"logic","L":11,"i":{"a":"a_3___L10_1","b":"b_3___L10_1"},"q":{"q":"n53"}},{"n":"g36","c":"and_bb","r":"gate","o":"logic","L":11,"i":{"a":"n43__L10_1","b":"n60__L10_0"},"q":{"q":"s_1___int"}},{"n":"spl_n45_L11","c":"spl2","r":"splitter","o":"splitter","L":11,"i":{"a":"n45"},"q":{"x":"n45__L11_0","y":"n45__L11_1"}},{"n":"spl_n47_L11","c":"spl3","r":"splitter","o":"splitter","L":11,"i":{"a":"n47"},"q":{"x":"n47__L11_0","y":"n47__L11_1","z":"n47__L11_2"}},{"n":"bfr_n25_L12","c":"bfr","r":"buffer","o":"buffer","L":12,"i":{"a":"n25__L11_0"},"q":{"q":"n25__L12_0"}},{"n":"bfr_n26_L12","c":"bfr","r":"buffer","o":"buffer","L":12,"i":{"a":"n26__L11_0"},"q":{"q":"n26__L12_0"}},{"n":"bfr_n53_L12","c":"bfr","r":"buffer","o":"buffer","L":12,"i":{"a":"n53"},"q":{"q":"n53__L12_0"}},{"n":"bfr_s_0__L12","c":"bfr","r":"buffer","o":"buffer","L":12,"i":{"a":"s_0___L11_0"},"q":{"q":"s_0___L12_0"}},{"n":"bfr_s_1__L12","c":"bfr","r":"buffer","o":"buffer","L":12,"i":{"a":"s_1___int"},"q":{"q":"s_1___L12_0"}},{"n":"g22","c":"and_bb","r":"gate","o":"logic","L":12,"i":{"a":"n45__L11_0","b":"n47__L11_0"},"q":{"q":"n49"}},{"n":"g23","c":"or_bi","r":"gate","o":"logic","L":12,"i":{"a":"n44","b":"n47__L11_1"},"q":{"q":"n50"}},{"n":"g33","c":"or_bb","r":"gate","o":"logic","L":12,"i":{"a":"n45__L11_1","b":"n47__L11_2"},"q":{"q":"n59"}},{"n":"spl_n23_L12","c":"spl2","r":"splitter","o":"splitter","L":12,"i":{"a":"n23"},"q":{"x":"n23__L12_0","y":"n23__L12_1"}},{"n":"bfr_n23_L13","c":"bfr","r":"buffer","o":"buffer","L":13,"i":{"a":"n23__L12_1"},"q":{"q":"n23__L13_0"}},{"n":"bfr_n26_L13","c":"bfr","r":"buffer","o":"buffer","L":13,"i":{"a":"n26__L12_0"},"q":{"q":"n26__L13_0"}},{"n":"bfr_n59_L13","c":"bfr","r":"buffer","o":"buffer","L":13,"i":{"a":"n59"},"q":{"q":"n59__L13_0"}},{"n":"bfr_s_0__L13","c":"bfr","r":"buffer","o":"buffer","L":13,"i":{"a":"s_0___L12_0"},"q":{"q":"s_0___L13_0"}},{"n":"bfr_s_1__L13","c":"bfr","r":"buffer","o":"buffer","L":13,"i":{"a":"s_1___L12_0"},"q":{"q":"s_1___L13_0"}},{"n":"g25","c":"or_bb","r":"gate","o":"logic","L":13,"i":{"a":"n25__L12_0","b":"n49"},"q":{"q":"n52"}},{"n":"g27","c":"and_bi","r":"gate","o":"logic","L":13,"i":{"a":"n53__L12_0","b":"n23__L12_0"},"q":{"q":"n54"}},{"n":"spl_n50_L13","c":"spl2","r":"splitter","o":"splitter","L":13,"i":{"a":"n50"},"q":{"x":"n50__L13_0","y":"n50__L13_1"}},{"n":"bfr_n23_L14","c":"bfr","r":"buffer","o":"buffer","L":14,"i":{"a":"n23__L13_0"},"q":{"q":"n23__L14_0"}},{"n":"bfr_s_0__L14","c":"bfr","r":"buffer","o":"buffer","L":14,"i":{"a":"s_0___L13_0"},"q":{"q":"s_0___L14_0"}},{"n":"bfr_s_1__L14","c":"bfr","r":"buffer","o":"buffer","L":14,"i":{"a":"s_1___L13_0"},"q":{"q":"s_1___L14_0"}},{"n":"g24","c":"and_bb","r":"gate","o":"logic","L":14,"i":{"a":"n26__L13_0","b":"n50__L13_0"},"q":{"q":"n51"}},{"n":"g34","c":"and_bb","r":"gate","o":"logic","L":14,"i":{"a":"n50__L13_1","b":"n59__L13_0"},"q":{"q":"s_2___int"}},{"n":"spl_n52_L14","c":"spl2","r":"splitter","o":"splitter","L":14,"i":{"a":"n52"},"q":{"x":"n52__L14_0","y":"n52__L14_1"}},{"n":"spl_n54_L14","c":"spl3","r":"splitter","o":"splitter","L":14,"i":{"a":"n54"},"q":{"x":"n54__L14_0","y":"n54__L14_1","z":"n54__L14_2"}},{"n":"bfr_n23_L15","c":"bfr","r":"buffer","o":"buffer","L":15,"i":{"a":"n23__L14_0"},"q":{"q":"n23__L15_0"}},{"n":"bfr_s_0__L15","c":"bfr","r":"buffer","o":"buffer","L":15,"i":{"a":"s_0___L14_0"},"q":{"q":"s_0___L15_0"}},{"n":"bfr_s_1__L15","c":"bfr","r":"buffer","o":"buffer","L":15,"i":{"a":"s_1___L14_0"},"q":{"q":"s_1___L15_0"}},{"n":"bfr_s_2__L15","c":"bfr","r":"buffer","o":"buffer","L":15,"i":{"a":"s_2___int"},"q":{"q":"s_2___L15_0"}},{"n":"g28","c":"and_bb","r":"gate","o":"logic","L":15,"i":{"a":"n52__L14_0","b":"n54__L14_0"},"q":{"q":"n56"}},{"n":"g29","c":"or_bi","r":"gate","o":"logic","L":15,"i":{"a":"n51","b":"n54__L14_1"},"q":{"q":"n57"}},{"n":"g31","c":"or_bb","r":"gate","o":"logic","L":15,"i":{"a":"n52__L14_1","b":"n54__L14_2"},"q":{"q":"n58"}},{"n":"bfr_s_0__L16","c":"bfr","r":"buffer","o":"buffer","L":16,"i":{"a":"s_0___L15_0"},"q":{"q":"s_0_"}},{"n":"bfr_s_1__L16","c":"bfr","r":"buffer","o":"buffer","L":16,"i":{"a":"s_1___L15_0"},"q":{"q":"s_1_"}},{"n":"bfr_s_2__L16","c":"bfr","r":"buffer","o":"buffer","L":16,"i":{"a":"s_2___L15_0"},"q":{"q":"s_2_"}},{"n":"g30","c":"or_bb","r":"gate","o":"logic","L":16,"i":{"a":"n23__L15_0","b":"n56"},"q":{"q":"cout"}},{"n":"g32","c":"and_bb","r":"gate","o":"logic","L":16,"i":{"a":"n57","b":"n58"},"q":{"q":"s_3_"}}],"depth":16,"method":"lp","buffers":82,"splitters":30,"errors":[]},"old":{"pis":["a_0_","a_1_","a_2_","a_3_","b_0_","b_1_","b_2_","b_3_","cin"],"pos":["s_0_","s_1_","s_2_","s_3_","cout"],"alias":{},"cells":[{"n":"splitter_a_0_","c":"spl3","r":"splitter","o":"splitter","L":1,"i":{"a":"a_0_"},"q":{"x":"a_0__split_0","y":"a_0__split_1","z":"a_0__split_2"}},{"n":"splitter_a_1_","c":"spl3","r":"splitter","o":"splitter","L":1,"i":{"a":"a_1_"},"q":{"x":"a_1__split_0","y":"a_1__split_1","z":"a_1__split_2"}},{"n":"splitter_a_2_","c":"spl3","r":"splitter","o":"splitter","L":1,"i":{"a":"a_2_"},"q":{"x":"a_2__split_0","y":"a_2__split_1","z":"a_2__split_2"}},{"n":"splitter_a_3_","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"a_3_"},"q":{"x":"a_3__split_0","y":"a_3__split_1"}},{"n":"splitter_b_0_","c":"spl3","r":"splitter","o":"splitter","L":1,"i":{"a":"b_0_"},"q":{"x":"b_0__split_0","y":"b_0__split_1","z":"b_0__split_2"}},{"n":"splitter_b_1_","c":"spl3","r":"splitter","o":"splitter","L":1,"i":{"a":"b_1_"},"q":{"x":"b_1__split_0","y":"b_1__split_1","z":"b_1__split_2"}},{"n":"splitter_b_2_","c":"spl3","r":"splitter","o":"splitter","L":1,"i":{"a":"b_2_"},"q":{"x":"b_2__split_0","y":"b_2__split_1","z":"b_2__split_2"}},{"n":"splitter_b_3_","c":"spl2","r":"splitter","o":"splitter","L":1,"i":{"a":"b_3_"},"q":{"x":"b_3__split_0","y":"b_3__split_1"}},{"n":"splitter_cin","c":"spl3","r":"splitter","o":"splitter","L":1,"i":{"a":"cin"},"q":{"x":"cin_split_0","y":"cin_split_1","z":"cin_split_2"}},{"n":"buffer_cin_split_0_0","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"cin_split_0"},"q":{"q":"cin_split_0_buffer_0"}},{"n":"buffer_cin_split_1_0","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"cin_split_1"},"q":{"q":"cin_split_1_buffer_0"}},{"n":"buffer_cin_split_2_0","c":"bfr","r":"buffer","o":"buffer","L":2,"i":{"a":"cin_split_2"},"q":{"q":"cin_split_2_buffer_0"}},{"n":"g0","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_3__split_0","b":"b_3__split_0"},"q":{"q":"n23"}},{"n":"g1","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_2__split_0","b":"b_2__split_0"},"q":{"q":"n25"}},{"n":"g14","c":"or_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_1__split_0","b":"b_1__split_0"},"q":{"q":"n39"}},{"n":"g2","c":"or_ii","r":"gate","o":"logic","L":2,"i":{"a":"a_2__split_1","b":"b_2__split_1"},"q":{"q":"n26"}},{"n":"g20","c":"or_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_2__split_2","b":"b_2__split_2"},"q":{"q":"n46"}},{"n":"g26","c":"or_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_3__split_1","b":"b_3__split_1"},"q":{"q":"n53"}},{"n":"g3","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_1__split_1","b":"b_1__split_1"},"q":{"q":"n27"}},{"n":"g4","c":"or_ii","r":"gate","o":"logic","L":2,"i":{"a":"a_1__split_2","b":"b_1__split_2"},"q":{"q":"n28"}},{"n":"g5","c":"and_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_0__split_0","b":"b_0__split_0"},"q":{"q":"n29"}},{"n":"g6","c":"or_ii","r":"gate","o":"logic","L":2,"i":{"a":"a_0__split_1","b":"b_0__split_1"},"q":{"q":"n30"}},{"n":"g7","c":"or_bb","r":"gate","o":"logic","L":2,"i":{"a":"a_0__split_2","b":"b_0__split_2"},"q":{"q":"n31"}},{"n":"buffer_cin_split_0_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"cin_split_0_buffer_0"},"q":{"q":"cin_split_0_buffer_0_buffer_1"}},{"n":"buffer_cin_split_1_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"cin_split_1_buffer_0"},"q":{"q":"cin_split_1_buffer_0_buffer_1"}},{"n":"buffer_cin_split_2_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"cin_split_2_buffer_0"},"q":{"q":"cin_split_2_buffer_0_buffer_1"}},{"n":"buffer_n25_0","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"n25"},"q":{"q":"n25_buffer_0"}},{"n":"buffer_n27_0","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"n27"},"q":{"q":"n27_buffer_0"}},{"n":"buffer_n46_0","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"n46"},"q":{"q":"n46_buffer_0"}},{"n":"buffer_n53_0","c":"bfr","r":"buffer","o":"buffer","L":3,"i":{"a":"n53"},"q":{"q":"n53_buffer_0"}},{"n":"g15","c":"and_bb","r":"gate","o":"logic","L":3,"i":{"a":"n28_split_0","b":"n39"},"q":{"q":"n40"}},{"n":"splitter_n23","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n23"},"q":{"x":"n23_split_0","y":"n23_split_1"}},{"n":"splitter_n26","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n26"},"q":{"x":"n26_split_0","y":"n26_split_1"}},{"n":"splitter_n28","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n28"},"q":{"x":"n28_split_0","y":"n28_split_1"}},{"n":"splitter_n29","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n29"},"q":{"x":"n29_split_0","y":"n29_split_1"}},{"n":"splitter_n30","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n30"},"q":{"x":"n30_split_0","y":"n30_split_1"}},{"n":"splitter_n31","c":"spl2","r":"splitter","o":"splitter","L":3,"i":{"a":"n31"},"q":{"x":"n31_split_0","y":"n31_split_1"}},{"n":"buffer_cin_split_0_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"cin_split_0_buffer_0_buffer_1"},"q":{"q":"cin_split_0_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_cin_split_1_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"cin_split_1_buffer_0_buffer_1"},"q":{"q":"cin_split_1_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_cin_split_2_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"cin_split_2_buffer_0_buffer_1"},"q":{"q":"cin_split_2_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n23_split_1_0","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n23_split_1"},"q":{"q":"n23_split_1_buffer_0"}},{"n":"buffer_n25_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n25_buffer_0"},"q":{"q":"n25_buffer_0_buffer_1"}},{"n":"buffer_n26_split_1_0","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n26_split_1"},"q":{"q":"n26_split_1_buffer_0"}},{"n":"buffer_n27_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n27_buffer_0"},"q":{"q":"n27_buffer_0_buffer_1"}},{"n":"buffer_n28_split_1_0","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n28_split_1"},"q":{"q":"n28_split_1_buffer_0"}},{"n":"buffer_n30_split_0_0","c":"bfr","r":"buffer","o":"buffer","L":4,"i":{"a":"n30_split_0"},"q":{"q":"n30_split_0_buffer_0"}},{"n":"g13","c":"or_bb","r":"gate","o":"logic","L":4,"i":{"a":"n29_split_0","b":"n35"},"q":{"q":"n38"}},{"n":"g21","c":"and_bb","r":"gate","o":"logic","L":4,"i":{"a":"n26_split_0","b":"n46_buffer_0"},"q":{"q":"n47"}},{"n":"g27","c":"and_bi","r":"gate","o":"logic","L":4,"i":{"a":"n53_buffer_0","b":"n23_split_0"},"q":{"q":"n54"}},{"n":"g8","c":"and_bb","r":"gate","o":"logic","L":4,"i":{"a":"n30_split_1","b":"n31_split_0"},"q":{"q":"n33"}},{"n":"g9","c":"or_bi","r":"gate","o":"logic","L":4,"i":{"a":"n29_split_1","b":"n31_split_1"},"q":{"q":"n34"}},{"n":"splitter_n40","c":"spl3","r":"splitter","o":"splitter","L":4,"i":{"a":"n40"},"q":{"x":"n40_split_0","y":"n40_split_1","z":"n40_split_2"}},{"n":"buffer_cin_split_0_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"cin_split_0_buffer_0_buffer_1_buffer_2"},"q":{"q":"cin_split_0_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_cin_split_2_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"cin_split_2_buffer_0_buffer_1_buffer_2"},"q":{"q":"cin_split_2_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_n23_split_1_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n23_split_1_buffer_0"},"q":{"q":"n23_split_1_buffer_0_buffer_1"}},{"n":"buffer_n25_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n25_buffer_0_buffer_1"},"q":{"q":"n25_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n26_split_1_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n26_split_1_buffer_0"},"q":{"q":"n26_split_1_buffer_0_buffer_1"}},{"n":"buffer_n27_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n27_buffer_0_buffer_1"},"q":{"q":"n27_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n28_split_1_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n28_split_1_buffer_0"},"q":{"q":"n28_split_1_buffer_0_buffer_1"}},{"n":"buffer_n30_split_0_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n30_split_0_buffer_0"},"q":{"q":"n30_split_0_buffer_0_buffer_1"}},{"n":"buffer_n40_split_0_0","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n40_split_0"},"q":{"q":"n40_split_0_buffer_0"}},{"n":"buffer_n40_split_1_0","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n40_split_1"},"q":{"q":"n40_split_1_buffer_0"}},{"n":"buffer_n40_split_2_0","c":"bfr","r":"buffer","o":"buffer","L":5,"i":{"a":"n40_split_2"},"q":{"q":"n40_split_2_buffer_0"}},{"n":"g11","c":"or_bi","r":"gate","o":"logic","L":5,"i":{"a":"n34","b":"cin_split_1_buffer_0_buffer_1_buffer_2"},"q":{"q":"n36"}},{"n":"splitter_n33","c":"spl2","r":"splitter","o":"splitter","L":5,"i":{"a":"n33"},"q":{"x":"n33_split_0","y":"n33_split_1"}},{"n":"splitter_n38","c":"spl2","r":"splitter","o":"splitter","L":5,"i":{"a":"n38"},"q":{"x":"n38_split_0","y":"n38_split_1"}},{"n":"splitter_n47","c":"spl3","r":"splitter","o":"splitter","L":5,"i":{"a":"n47"},"q":{"x":"n47_split_0","y":"n47_split_1","z":"n47_split_2"}},{"n":"splitter_n54","c":"spl3","r":"splitter","o":"splitter","L":5,"i":{"a":"n54"},"q":{"x":"n54_split_0","y":"n54_split_1","z":"n54_split_2"}},{"n":"buffer_n23_split_1_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n23_split_1_buffer_0_buffer_1"},"q":{"q":"n23_split_1_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n25_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n25_buffer_0_buffer_1_buffer_2"},"q":{"q":"n25_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_n26_split_1_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n26_split_1_buffer_0_buffer_1"},"q":{"q":"n26_split_1_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n27_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n27_buffer_0_buffer_1_buffer_2"},"q":{"q":"n27_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_n28_split_1_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n28_split_1_buffer_0_buffer_1"},"q":{"q":"n28_split_1_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n30_split_0_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n30_split_0_buffer_0_buffer_1"},"q":{"q":"n30_split_0_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n40_split_1_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n40_split_1_buffer_0"},"q":{"q":"n40_split_1_buffer_0_buffer_1"}},{"n":"buffer_n47_split_0_0","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n47_split_0"},"q":{"q":"n47_split_0_buffer_0"}},{"n":"buffer_n47_split_1_0","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n47_split_1"},"q":{"q":"n47_split_1_buffer_0"}},{"n":"buffer_n47_split_2_0","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n47_split_2"},"q":{"q":"n47_split_2_buffer_0"}},{"n":"buffer_n54_split_0_0","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n54_split_0"},"q":{"q":"n54_split_0_buffer_0"}},{"n":"buffer_n54_split_1_0","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n54_split_1"},"q":{"q":"n54_split_1_buffer_0"}},{"n":"buffer_n54_split_2_0","c":"bfr","r":"buffer","o":"buffer","L":6,"i":{"a":"n54_split_2"},"q":{"q":"n54_split_2_buffer_0"}},{"n":"g10","c":"and_bb","r":"gate","o":"logic","L":6,"i":{"a":"cin_split_0_buffer_0_buffer_1_buffer_2_buffer_3","b":"n33_split_0"},"q":{"q":"n35"}},{"n":"g16","c":"and_bb","r":"gate","o":"logic","L":6,"i":{"a":"n38_split_0","b":"n40_split_0_buffer_0"},"q":{"q":"n42"}},{"n":"g35","c":"or_bb","r":"gate","o":"logic","L":6,"i":{"a":"n38_split_1","b":"n40_split_2_buffer_0"},"q":{"q":"n60"}},{"n":"g37","c":"or_bb","r":"gate","o":"logic","L":6,"i":{"a":"cin_split_2_buffer_0_buffer_1_buffer_2_buffer_3","b":"n33_split_1"},"q":{"q":"n61"}},{"n":"splitter_n36","c":"spl2","r":"splitter","o":"splitter","L":6,"i":{"a":"n36"},"q":{"x":"n36_split_0","y":"n36_split_1"}},{"n":"buffer_n23_split_1_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n23_split_1_buffer_0_buffer_1_buffer_2"},"q":{"q":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_n25_buffer_0_buffer_1_buffer_2_buffer_3_4","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n25_buffer_0_buffer_1_buffer_2_buffer_3"},"q":{"q":"n25_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"}},{"n":"buffer_n26_split_1_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n26_split_1_buffer_0_buffer_1_buffer_2"},"q":{"q":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_n28_split_1_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n28_split_1_buffer_0_buffer_1_buffer_2"},"q":{"q":"n28_split_1_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_n40_split_1_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n40_split_1_buffer_0_buffer_1"},"q":{"q":"n40_split_1_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n47_split_0_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n47_split_0_buffer_0"},"q":{"q":"n47_split_0_buffer_0_buffer_1"}},{"n":"buffer_n47_split_1_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n47_split_1_buffer_0"},"q":{"q":"n47_split_1_buffer_0_buffer_1"}},{"n":"buffer_n47_split_2_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n47_split_2_buffer_0"},"q":{"q":"n47_split_2_buffer_0_buffer_1"}},{"n":"buffer_n54_split_0_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n54_split_0_buffer_0"},"q":{"q":"n54_split_0_buffer_0_buffer_1"}},{"n":"buffer_n54_split_1_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n54_split_1_buffer_0"},"q":{"q":"n54_split_1_buffer_0_buffer_1"}},{"n":"buffer_n54_split_2_buffer_0_1","c":"bfr","r":"buffer","o":"buffer","L":7,"i":{"a":"n54_split_2_buffer_0"},"q":{"q":"n54_split_2_buffer_0_buffer_1"}},{"n":"g12","c":"and_bb","r":"gate","o":"logic","L":7,"i":{"a":"n30_split_0_buffer_0_buffer_1_buffer_2","b":"n36_split_0"},"q":{"q":"n37"}},{"n":"g19","c":"or_bb","r":"gate","o":"logic","L":7,"i":{"a":"n27_buffer_0_buffer_1_buffer_2_buffer_3","b":"n42"},"q":{"q":"n45"}},{"n":"g36","c":"and_bb","r":"gate","o":"logic","L":7,"i":{"a":"n43_split_1","b":"n60"},"q":{"q":"s_1_"}},{"n":"g38","c":"and_bb","r":"gate","o":"logic","L":7,"i":{"a":"n36_split_1","b":"n61"},"q":{"q":"s_0_"}},{"n":"buffer_n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_4","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3"},"q":{"q":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"}},{"n":"buffer_n25_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_5","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n25_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"},"q":{"q":"n25_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"}},{"n":"buffer_n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_4","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3"},"q":{"q":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"}},{"n":"buffer_n28_split_1_buffer_0_buffer_1_buffer_2_buffer_3_4","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n28_split_1_buffer_0_buffer_1_buffer_2_buffer_3"},"q":{"q":"n28_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"}},{"n":"buffer_n47_split_0_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n47_split_0_buffer_0_buffer_1"},"q":{"q":"n47_split_0_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n47_split_1_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n47_split_1_buffer_0_buffer_1"},"q":{"q":"n47_split_1_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n47_split_2_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n47_split_2_buffer_0_buffer_1"},"q":{"q":"n47_split_2_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n54_split_0_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n54_split_0_buffer_0_buffer_1"},"q":{"q":"n54_split_0_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n54_split_1_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n54_split_1_buffer_0_buffer_1"},"q":{"q":"n54_split_1_buffer_0_buffer_1_buffer_2"}},{"n":"buffer_n54_split_2_buffer_0_buffer_1_2","c":"bfr","r":"buffer","o":"buffer","L":8,"i":{"a":"n54_split_2_buffer_0_buffer_1"},"q":{"q":"n54_split_2_buffer_0_buffer_1_buffer_2"}},{"n":"g17","c":"or_bi","r":"gate","o":"logic","L":8,"i":{"a":"n37","b":"n40_split_1_buffer_0_buffer_1_buffer_2"},"q":{"q":"n43"}},{"n":"splitter_n45","c":"spl2","r":"splitter","o":"splitter","L":8,"i":{"a":"n45"},"q":{"x":"n45_split_0","y":"n45_split_1"}},{"n":"buffer_n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_5","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"},"q":{"q":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"}},{"n":"buffer_n25_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_6","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"n25_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"},"q":{"q":"n25_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6"}},{"n":"buffer_n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_5","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"},"q":{"q":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"}},{"n":"buffer_n28_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_5","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"n28_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"},"q":{"q":"n28_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"}},{"n":"buffer_n47_split_1_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"n47_split_1_buffer_0_buffer_1_buffer_2"},"q":{"q":"n47_split_1_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_n54_split_0_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"n54_split_0_buffer_0_buffer_1_buffer_2"},"q":{"q":"n54_split_0_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_n54_split_1_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"n54_split_1_buffer_0_buffer_1_buffer_2"},"q":{"q":"n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"buffer_n54_split_2_buffer_0_buffer_1_buffer_2_3","c":"bfr","r":"buffer","o":"buffer","L":9,"i":{"a":"n54_split_2_buffer_0_buffer_1_buffer_2"},"q":{"q":"n54_split_2_buffer_0_buffer_1_buffer_2_buffer_3"}},{"n":"g22","c":"and_bb","r":"gate","o":"logic","L":9,"i":{"a":"n45_split_0","b":"n47_split_0_buffer_0_buffer_1_buffer_2"},"q":{"q":"n49"}},{"n":"g33","c":"or_bb","r":"gate","o":"logic","L":9,"i":{"a":"n45_split_1","b":"n47_split_2_buffer_0_buffer_1_buffer_2"},"q":{"q":"n59"}},{"n":"splitter_n43","c":"spl2","r":"splitter","o":"splitter","L":9,"i":{"a":"n43"},"q":{"x":"n43_split_0","y":"n43_split_1"}},{"n":"buffer_n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_6","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"},"q":{"q":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6"}},{"n":"buffer_n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_6","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"},"q":{"q":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6"}},{"n":"buffer_n47_split_1_buffer_0_buffer_1_buffer_2_buffer_3_4","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"n47_split_1_buffer_0_buffer_1_buffer_2_buffer_3"},"q":{"q":"n47_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"}},{"n":"buffer_n54_split_0_buffer_0_buffer_1_buffer_2_buffer_3_4","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"n54_split_0_buffer_0_buffer_1_buffer_2_buffer_3"},"q":{"q":"n54_split_0_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"}},{"n":"buffer_n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_4","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3"},"q":{"q":"n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"}},{"n":"buffer_n54_split_2_buffer_0_buffer_1_buffer_2_buffer_3_4","c":"bfr","r":"buffer","o":"buffer","L":10,"i":{"a":"n54_split_2_buffer_0_buffer_1_buffer_2_buffer_3"},"q":{"q":"n54_split_2_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"}},{"n":"g18","c":"and_bb","r":"gate","o":"logic","L":10,"i":{"a":"n28_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5","b":"n43_split_0"},"q":{"q":"n44"}},{"n":"g25","c":"or_bb","r":"gate","o":"logic","L":10,"i":{"a":"n25_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6","b":"n49"},"q":{"q":"n52"}},{"n":"g34","c":"and_bb","r":"gate","o":"logic","L":10,"i":{"a":"n50_split_1","b":"n59"},"q":{"q":"s_2_"}},{"n":"buffer_n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_7","c":"bfr","r":"buffer","o":"buffer","L":11,"i":{"a":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6"},"q":{"q":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7"}},{"n":"buffer_n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_7","c":"bfr","r":"buffer","o":"buffer","L":11,"i":{"a":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6"},"q":{"q":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7"}},{"n":"buffer_n54_split_0_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_5","c":"bfr","r":"buffer","o":"buffer","L":11,"i":{"a":"n54_split_0_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"},"q":{"q":"n54_split_0_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"}},{"n":"buffer_n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_5","c":"bfr","r":"buffer","o":"buffer","L":11,"i":{"a":"n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"},"q":{"q":"n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"}},{"n":"buffer_n54_split_2_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_5","c":"bfr","r":"buffer","o":"buffer","L":11,"i":{"a":"n54_split_2_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"},"q":{"q":"n54_split_2_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"}},{"n":"g23","c":"or_bi","r":"gate","o":"logic","L":11,"i":{"a":"n44","b":"n47_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4"},"q":{"q":"n50"}},{"n":"splitter_n52","c":"spl2","r":"splitter","o":"splitter","L":11,"i":{"a":"n52"},"q":{"x":"n52_split_0","y":"n52_split_1"}},{"n":"buffer_n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7_8","c":"bfr","r":"buffer","o":"buffer","L":12,"i":{"a":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7"},"q":{"q":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7_buffer_8"}},{"n":"buffer_n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7_8","c":"bfr","r":"buffer","o":"buffer","L":12,"i":{"a":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7"},"q":{"q":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7_buffer_8"}},{"n":"buffer_n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_6","c":"bfr","r":"buffer","o":"buffer","L":12,"i":{"a":"n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"},"q":{"q":"n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6"}},{"n":"g28","c":"and_bb","r":"gate","o":"logic","L":12,"i":{"a":"n52_split_0","b":"n54_split_0_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"},"q":{"q":"n56"}},{"n":"g31","c":"or_bb","r":"gate","o":"logic","L":12,"i":{"a":"n52_split_1","b":"n54_split_2_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5"},"q":{"q":"n58"}},{"n":"splitter_n50","c":"spl2","r":"splitter","o":"splitter","L":12,"i":{"a":"n50"},"q":{"x":"n50_split_0","y":"n50_split_1"}},{"n":"buffer_n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_7","c":"bfr","r":"buffer","o":"buffer","L":13,"i":{"a":"n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6"},"q":{"q":"n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7"}},{"n":"g24","c":"and_bb","r":"gate","o":"logic","L":13,"i":{"a":"n26_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7_buffer_8","b":"n50_split_0"},"q":{"q":"n51"}},{"n":"g30","c":"or_bb","r":"gate","o":"logic","L":13,"i":{"a":"n23_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7_buffer_8","b":"n56"},"q":{"q":"cout"}},{"n":"g32","c":"and_bb","r":"gate","o":"logic","L":13,"i":{"a":"n57","b":"n58"},"q":{"q":"s_3_"}},{"n":"g29","c":"or_bi","r":"gate","o":"logic","L":14,"i":{"a":"n51","b":"n54_split_1_buffer_0_buffer_1_buffer_2_buffer_3_buffer_4_buffer_5_buffer_6_buffer_7"},"q":{"q":"n57"}}],"depth":14,"buffers":87,"splitters":25,"errors":["相位不一致：g15(and_bb).b 的信号来自第 2 级，但该单元在第 4 级（需要第 3 级）","g15 标注为第 3 级，结构推出第 4 级","splitter_n40 标注为第 4 级，结构推出第 5 级","buffer_n40_split_0_0 标注为第 5 级，结构推出第 6 级","buffer_n40_split_1_0 标注为第 5 级，结构推出第 6 级","buffer_n40_split_2_0 标注为第 5 级，结构推出第 6 级","buffer_n40_split_1_buffer_0_1 标注为第 6 级，结构推出第 7 级","相位不一致：g13(or_bb).a 的信号来自第 3 级，但该单元在第 7 级（需要第 6 级）","g13 标注为第 4 级，结构推出第 7 级","buffer_n40_split_1_buffer_0_buffer_1_2 标注为第 7 级，结构推出第 8 级","splitter_n38 标注为第 5 级，结构推出第 8 级","相位不一致：g17(or_bi).a 的信号来自第 7 级，但该单元在第 9 级（需要第 8 级）"]}}]};
+const PH = ['--p0', '--p1', '--p2', '--p3'];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const phaseOf = L => ((L - 1) % 4 + 4) % 4;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+const STEPS = [
+  {id: 'raw', name: '① 原始网表'},
+  {id: 'lv', name: '② 定级'},
+  {id: 'spl', name: '③ + splitter'},
+  {id: 'buf', name: '④ + buffer'},
+  {id: 'run', name: '⑤ 通电运行'},
+];
+const state = {ex: 0, ver: 'new', step: 'raw', sim: null, t: 0, timer: null, quizDone: {}};
+const quizSeen = {};
+try { Object.assign(quizSeen, JSON.parse(localStorage.getItem('aqfpQuiz') || '{}')); } catch (e) {}
+
+/* ---------------- 时钟带 ---------------- */
+function drawClock(cursor) {
+  const svg = document.getElementById('clockSvg');
+  const W = 800, H = 92, lanes = 4, lh = H / lanes, cycles = 4;
+  let s = '';
+  for (let p = 0; p < lanes; p++) {
+    const y0 = p * lh + lh * 0.82, amp = lh * 0.62;
+    let d = '';
+    for (let x = 0; x <= W; x += 4) {
+      const ph = x / W * cycles * 2 * Math.PI - p * Math.PI / 2;
+      const v = Math.max(0, Math.sin(ph));
+      d += (x ? 'L' : 'M') + x + ' ' + (y0 - v * amp).toFixed(1);
+    }
+    s += `<path d="${d}" fill="none" stroke="var(${PH[p]})" stroke-width="2"/>`;
+    s += `<line x1="0" x2="${W}" y1="${y0}" y2="${y0}" stroke="var(--grid)" stroke-width="1"/>`;
+  }
+  if (cursor != null) {
+    const x = ((cursor % 16) + 0.5) / 16 * W;
+    s += `<line x1="${x}" x2="${x}" y1="0" y2="${H}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+  }
+  svg.innerHTML = s;
+  document.getElementById('clockLegend').innerHTML = [0, 1, 2, 3].map(p =>
+    `<span><span class="sw" style="background:var(${PH[p]})"></span>相位 ${p}：第 ${p + 1}、${p + 5}、${p + 9}… 级</span>`).join('');
+}
+
+/* ---------------- 数据视图 ---------------- */
+function ex() { return DATA.examples[state.ex]; }
+function ver() { return state.ver === 'old' ? ex().old : ex().new; }
+
+function viewCells(v, step) {
+  const show = c => step === 'buf' || step === 'run' || c.o === 'logic' || (step === 'spl' && c.o === 'splitter');
+  const drv = {};
+  for (const c of v.cells) for (const n of Object.values(c.q)) drv[n] = c;
+  const vis = v.cells.filter(show);
+  const visSet = new Set(vis.map(c => c.n));
+  // 隐藏单元当导线：一路追到可见的驱动
+  const src = net => {
+    let n = net, guard = 0;
+    while (drv[n] && !visSet.has(drv[n].n) && guard++ < 999) { const c = drv[n]; n = Object.values(c.i)[0]; }
+    return n;
+  };
+  return {vis, drv, src};
+}
+
+function rankLevels(cells, pis) {
+  // 原始网表没有相位概念：按逻辑深度排一下，只为好看
+  const drv = {}; cells.forEach(c => Object.values(c.q).forEach(n => drv[n] = c));
+  const lv = {};
+  const get = c => {
+    if (lv[c.n] != null) return lv[c.n];
+    lv[c.n] = 1;
+    let m = 0;
+    for (const n of Object.values(c.i)) if (drv[n]) m = Math.max(m, get(drv[n]));
+    return lv[c.n] = m + 1;
+  };
+  cells.forEach(get);
+  return lv;
+}
+
+function layout(v, step) {
+  const raw = step === 'raw';
+  const cellsAll = raw ? ex().logic.cells : v.cells;
+  const V = raw ? {vis: cellsAll, drv: {}, src: n => n} : viewCells(v, step);
+  if (raw) cellsAll.forEach(c => Object.values(c.q).forEach(n => V.drv[n] = c));
+  const lv = raw ? rankLevels(cellsAll, ex().logic.pis) : Object.fromEntries(V.vis.map(c => [c.n, c.L]));
+  const maxL = Math.max(0, ...Object.values(lv));
+  const D = raw ? maxL : v.depth;
+  const cols = {};
+  const pis = raw ? ex().logic.pis : v.pis;
+  const pos = raw ? ex().logic.pos : v.pos;
+  const alias = (raw ? ex().logic.alias : v.alias) || {};
+  const nodes = {};
+  pis.forEach((p, i) => { nodes['PI:' + p] = {id: 'PI:' + p, kind: 'pi', label: p, L: 0, y: i}; });
+  for (const c of V.vis) nodes[c.n] = {id: c.n, kind: c.r, cell: c, label: c.c, L: lv[c.n]};
+  pos.forEach(p => { nodes['PO:' + p] = {id: 'PO:' + p, kind: 'po', label: p, L: Math.max(D, maxL) + 1}; });
+  const nodeOfNet = net => {
+    const s = V.src(net);
+    if (V.drv[s] && nodes[V.drv[s].n]) return nodes[V.drv[s].n];
+    if (nodes['PI:' + s]) return nodes['PI:' + s];
+    return null;
+  };
+  const edges = [];
+  for (const c of V.vis) for (const [pin, net] of Object.entries(c.i)) {
+    const a = nodeOfNet(net); if (a) edges.push({a, b: nodes[c.n], net: V.src(net), rawNet: net});
+  }
+  for (const p of pos) {
+    const net = alias[p] || p; const a = nodeOfNet(net);
+    if (a) edges.push({a, b: nodes['PO:' + p], net: V.src(net), rawNet: net, po: true});
+  }
+  // 扇出统计（以可见网线为单位）
+  const fan = {};
+  edges.forEach(e => fan[e.a.id + '|' + e.net] = (fan[e.a.id + '|' + e.net] || 0) + 1);
+  edges.forEach(e => { e.fan = fan[e.a.id + '|' + e.net]; e.gap = e.b.L - e.a.L; });
+  // 列内排序：前驱 y 的重心
+  for (const n of Object.values(nodes)) (cols[n.L] = cols[n.L] || []).push(n);
+  const keys = Object.keys(cols).map(Number).sort((x, y) => x - y);
+  const preds = {}; edges.forEach(e => (preds[e.b.id] = preds[e.b.id] || []).push(e.a));
+  for (const k of keys) {
+    const col = cols[k];
+    if (k > 0) col.forEach(n => { const ps = preds[n.id] || []; n.bc = ps.length ? ps.reduce((s, p) => s + (p.yy ?? 0), 0) / ps.length : 1e9; });
+    if (k > 0) col.sort((a, b) => a.bc - b.bc);
+    col.forEach((n, i) => n.yy = i);
+  }
+  return {nodes, edges, cols, keys, D: Math.max(D, maxL), raw};
+}
+
+/* ---------------- 绘图 ---------------- */
+const COLW = 104, ROWH = 40, PADX = 34, PADY = 40;
+function nodeSize(n) {
+  if (n.kind === 'buffer') return [30, 22];
+  if (n.kind === 'splitter') return [40, 26];
+  if (n.kind === 'pi' || n.kind === 'po') return [44, 24];
+  return [70, 28];
+}
+function render() {
+  const v = ver();
+  const host = document.getElementById('canvas');
+  if (state.ver === 'old' && v.crash) {
+    host.innerHTML = `<div class="note bad" style="margin:12px">原版直接抛出异常：<code>${esc(v.crash)}</code></div>`;
+    return;
+  }
+  const G = state.G = layout(v, state.step);
+  const maxRows = Math.max(...G.keys.map(k => G.cols[k].length));
+  const W = PADX * 2 + (G.D + 1) * COLW + 40, H = PADY + maxRows * ROWH + 24;
+  const pos = n => [PADX + n.L * COLW + 20, PADY + n.yy * ROWH + 14];
+  let s = '';
+  // 相位列底纹
+  for (let L = 0; L <= G.D + 1; L++) {
+    const x = PADX + L * COLW - 18;
+    const label = L === 0 ? '输入' : (L === G.D + 1 ? '输出' : (G.raw ? `深度 ${L}` : `L${L} · 相位${phaseOf(L)}`));
+    const col = (G.raw || L === 0 || L === G.D + 1) ? 'var(--ink-2)' : `var(${PH[phaseOf(L)]})`;
+    s += `<rect x="${x}" y="0" width="${COLW - 4}" height="${H}" fill="${(L % 2) ? 'var(--paper)' : 'transparent'}" opacity=".55"/>`;
+    s += `<text x="${x + 4}" y="18" font-size="11" font-family="var(--f-mono)" fill="${col}">${label}</text>`;
+  }
+  // 边
+  for (const e of G.edges) {
+    const [ax, ay] = pos(e.a), [bx, by] = pos(e.b);
+    const [aw] = nodeSize(e.a), [bw] = nodeSize(e.b);
+    const x1 = ax + aw / 2, x2 = bx - bw / 2, mx = (x1 + x2) / 2;
+    let cls = 'ok';
+    if (!G.raw) {
+      const phaseBad = e.po ? (e.a.L !== G.D && e.a.kind !== 'pi' || (e.a.kind === 'pi' && G.D !== 0)) : e.gap !== 1;
+      if (e.fan > 1) cls = 'fan'; else if (phaseBad) cls = 'gap';
+    }
+    e.cls = cls;
+    const stroke = cls === 'gap' ? 'var(--bad)' : cls === 'fan' ? 'var(--warn)' : 'var(--ink-2)';
+    const dash = cls === 'fan' ? '5 4' : '';
+    s += `<path data-net="${esc(e.rawNet)}" data-src="${esc(e.a.id)}" d="M${x1} ${ay} C${mx} ${ay} ${mx} ${by} ${x2} ${by}" fill="none" stroke="${stroke}" stroke-width="${cls === 'ok' ? 1.4 : 2}" stroke-dasharray="${dash}" opacity="${cls === 'ok' ? .75 : 1}"/>`;
+  }
+  // 节点
+  for (const n of Object.values(G.nodes)) {
+    const [x, y] = pos(n), [w, h] = nodeSize(n);
+    const ph = n.L > 0 && !G.raw && n.kind !== 'po' ? `var(${PH[phaseOf(n.L)]})` : 'var(--ink-2)';
+    let shape;
+    if (n.kind === 'pi' || n.kind === 'po') shape = `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="12" fill="var(--sheet)" stroke="var(--ink)" stroke-width="1.2"/>`;
+    else if (n.kind === 'splitter') shape = `<path d="M${x - w / 2} ${y} L${x} ${y - h / 2} L${x + w / 2} ${y} L${x} ${y + h / 2} Z" fill="var(--sheet)" stroke="${ph}" stroke-width="2"/>`;
+    else if (n.kind === 'buffer') shape = `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="4" fill="var(--sheet)" stroke="${ph}" stroke-width="1.6" stroke-dasharray="3 2"/>`;
+    else shape = `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="4" fill="var(--sheet)" stroke="${ph}" stroke-width="2"/>`;
+    const txt = n.kind === 'buffer' ? '' : n.kind === 'splitter' ? n.label.replace('spl', 's') : n.label;
+    s += `<g data-node="${esc(n.id)}"><title>${esc(n.id)}${n.cell ? ' · ' + esc(n.cell.c) + ' · L' + n.L : ''}</title>${shape}` +
+      `<text class="nlabel" x="${x}" y="${y + 4}" text-anchor="middle" font-size="${n.kind === 'pi' || n.kind === 'po' ? 12 : 11}" font-family="var(--f-mono)" fill="var(--ink)">${esc(txt)}</text>` +
+      `<text class="nval" x="${x + w / 2 + 2}" y="${y - h / 2 - 2}" font-size="12" font-weight="600" font-family="var(--f-mono)" fill="var(--ink)"></text></g>`;
+  }
+  host.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="网表图">${s}</svg>`;
+}
+
+/* ---------------- 统计与说明 ---------------- */
+function counts() {
+  const v = ver();
+  if (v.crash) return null;
+  const G = state.G || layout(v, 'buf');
+  let gap = 0, fan = 0;
+  const Gb = layout(v, 'buf');
+  // 在完整网表上数违规
+  Gb.edges.forEach(e => {
+    const bad = e.po ? (e.a.L !== Gb.D) : e.gap !== 1;
+    if (e.fan > 1) fan++; else if (bad) gap++;
+  });
+  return {gap, fan};
+}
+function renderStats() {
+  const v = ver();
+  const el = document.getElementById('stats');
+  if (v.crash) { el.innerHTML = ''; return; }
+  const c = counts();
+  const item = (val, lab, cls = '') => `<div class="stat ${cls}"><b>${val}</b><span>${lab}</span></div>`;
+  el.innerHTML = item(v.cells.filter(x => x.o === 'logic').length, '逻辑门') +
+    item(v.buffers, 'buffer') + item(v.splitters, 'splitter') + item(v.depth, '深度（输出相位）') +
+    item(c.gap, '相位违规的连线', c.gap ? 'bad' : 'good') + item(c.fan, '扇出违规的连线', c.fan ? 'bad' : 'good');
+}
+function renderNote() {
+  const v = ver();
+  const el = document.getElementById('stepNote');
+  const old = state.ver === 'old';
+  el.classList.remove('bad');
+  if (v.crash) { el.textContent = '这个电路原版跑不完。切回"新版"看完整流程。'; el.classList.add('bad'); return; }
+  const txt = {
+    raw: '原始门级网表：只有逻辑门，还没有相位的概念。列只是按逻辑深度排的。',
+    lv: old ? '原版给每个门定的级数。红线：两端相差不是 1 级（要补 buffer 却没补对的地方会一直红下去）；橙色虚线：一个输出接了多个负载。'
+            : '新版先在"最小可行深度"下给逻辑门定级（考虑了 splitter 要占的级），再在 ASAP / ALAP / 线性规划 三种解里用精确代价挑最省的。红线和橙线是接下来要靠 buffer、splitter 修好的地方。',
+    spl: '加上 splitter：每根有多个负载的线换成一棵 splitter 树。buffer 暂时画成导线。',
+    buf: old ? '原版的最终结果。若还有红线或橙线，说明它没满足 AQFP 的约束——下一步通电就能看到后果。'
+             : '新版的最终结果：每根线恰好一个负载，每条边恰好跨一个相位，所有输出在同一相位取出。',
+    run: '通电：时钟一相一相往前走，被激励的单元会亮起该相位的颜色并算出新值。'
+  }[state.step];
+  el.textContent = txt;
+  if (old && state.step !== 'raw' && (counts().gap || counts().fan)) el.classList.add('bad');
+  document.getElementById('keys').innerHTML = state.step === 'raw' ? '' :
+    `<span><i style="border-color:var(--ink-2)"></i>正常</span><span><i style="border-color:var(--bad)"></i>相位差 ≠ 1</span>` +
+    `<span><i style="border-color:var(--warn);border-top-style:dashed"></i>一个输出驱动多个负载</span>` +
+    `<span>▭ 门　◇ splitter　┅ buffer（虚线框）</span>`;
+  const errs = document.getElementById('errs');
+  if (old && v.errors && v.errors.length && state.step === 'buf') {
+    errs.hidden = false;
+    errs.innerHTML = '<li><b>独立校验器的报告（前几条）</b></li>' + v.errors.slice(0, 8).map(e => `<li>${esc(e)}</li>`).join('');
+  } else errs.hidden = true;
+}
+
+/* ---------------- 仿真 ---------------- */
+function evalCell(type, ins) {
+  const d = DATA.lib[type]; const out = {};
+  const xs = d.i.filter(p => ins[p] == null);
+  for (const o of d.q) {
+    let val;
+    for (let m = 0; m < (1 << xs.length); m++) {
+      const v = {...ins}; xs.forEach((p, j) => v[p] = (m >> j) & 1);
+      let idx = 0; d.i.forEach(p => idx = idx * 2 + v[p]);
+      const r = d.t[o][idx];
+      if (val === undefined) val = r; else if (val !== r) { val = null; break; }
+    }
+    out[o] = val;
+  }
+  return out;
+}
+function combEval(v, vec) {
+  const val = {"1'b0": 0, "1'b1": 1, ...vec};
+  const drv = {}; v.cells.forEach(c => Object.values(c.q).forEach(n => drv[n] = c));
+  const done = new Set();
+  const need = net => { if (val[net] === undefined && drv[net]) run(drv[net]); return val[net]; };
+  const run = c => {
+    if (done.has(c.n)) return; done.add(c.n);
+    const ins = {}; for (const [p, n] of Object.entries(c.i)) ins[p] = need(n);
+    const o = evalCell(c.c, ins); for (const [p, n] of Object.entries(c.q)) val[n] = o[p];
+  };
+  const out = {}; for (const p of v.pos) out[p] = need((v.alias || {})[p] || p);
+  return out;
+}
+function buildSim() {
+  const v = ver(), logic = ex().logic;
+  const N = 10;
+  let seed = 12345 + state.ex * 7;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) >> 16 & 1;
+  const stream = Array.from({length: N}, () => Object.fromEntries(v.pis.map(p => [p, rnd()])));
+  const expected = stream.map(vec => combEval(logic, vec));
+  const D = v.depth;
+  const srcL = {}; v.pis.forEach(p => srcL[p] = 0);
+  v.cells.forEach(c => Object.values(c.q).forEach(n => srcL[n] = c.L));
+  const T = 4 * (N + 1) + D + 2;
+  const last = {}; // net -> {t, v}
+  const frames = [];
+  const read = (net, t, L) => {
+    if (net === "1'b0") return 0; if (net === "1'b1") return 1;
+    const Ls = srcL[net]; if (Ls == null) return null;
+    if (((L - Ls) % 4 + 4) % 4 !== 1) return null;
+    const w = last[net]; return w && w.t === t - 1 ? w.v : null;
+  };
+  const order = [...v.cells].sort((a, b) => a.L - b.L);
+  const rows = [];
+  for (let t = 0; t < T; t++) {
+    if (t % 4 === 0) { const vec = stream[t / 4]; v.pis.forEach(p => last[p] = {t, v: vec ? vec[p] : null}); }
+    const active = new Set(), vals = {};
+    for (const c of order) {
+      if (((c.L - t) % 4 + 4) % 4 !== 0) continue;
+      const ins = {}; for (const [p, n] of Object.entries(c.i)) ins[p] = read(n, t, c.L);
+      const o = evalCell(c.c, ins);
+      for (const [p, n] of Object.entries(c.q)) last[n] = {t, v: o[p]};
+      active.add(c.n);
+    }
+    // 此刻每根线的值（源头在保持期才有值）
+    for (const [n, w] of Object.entries(last)) if (t - w.t <= 1) vals[n] = w.v;
+    const k = (t - D - 1) / 4;
+    let row = null;
+    if (Number.isInteger(k) && k >= 0 && k < N) {
+      row = {k, vec: stream[k], exp: expected[k], got: {}};
+      for (const p of v.pos) row.got[p] = read((v.alias || {})[p] || p, t, D + 1);
+      rows.push(row);
+    }
+    frames.push({t, active, vals, row});
+  }
+  return {frames, rows, N, D, v};
+}
+function paintFrame() {
+  const sim = state.sim; if (!sim) return;
+  const t = Math.min(state.t, sim.frames.length - 1);
+  const f = sim.frames[t];
+  const svg = document.querySelector('#canvas svg'); if (!svg) return;
+  const one = 'var(--one)', zero = 'var(--zero)';
+  svg.querySelectorAll('path[data-net]').forEach(p => {
+    const v = f.vals[p.dataset.net];
+    if (p.dataset.base === undefined) p.dataset.base = p.getAttribute('stroke') + '|' + p.getAttribute('stroke-dasharray');
+    const [bs, bd] = p.dataset.base.split('|');
+    if (v === 1) { p.setAttribute('stroke', one); p.setAttribute('stroke-width', 2.4); p.setAttribute('stroke-dasharray', ''); }
+    else if (v === 0) { p.setAttribute('stroke', zero); p.setAttribute('stroke-width', 2); p.setAttribute('stroke-dasharray', ''); }
+    else if (v === null) { p.setAttribute('stroke', 'var(--warn)'); p.setAttribute('stroke-width', 2); p.setAttribute('stroke-dasharray', '2 3'); }
+    else { p.setAttribute('stroke', bs); p.setAttribute('stroke-width', 1.2); p.setAttribute('stroke-dasharray', bd); p.setAttribute('opacity', .35); return; }
+    p.setAttribute('opacity', 1);
+  });
+  svg.querySelectorAll('g[data-node]').forEach(g => {
+    const id = g.dataset.node, shape = g.firstElementChild.nextElementSibling;
+    const c = sim.v.cells.find(x => x.n === id);
+    const val = g.querySelector('.nval');
+    if (c) {
+      const on = f.active.has(id);
+      shape.setAttribute('fill', on ? `var(${PH[phaseOf(c.L)]})` : 'var(--sheet)');
+      shape.setAttribute('fill-opacity', on ? .28 : 1);
+      const net = Object.values(c.q)[0]; const v = f.vals[net];
+      val.textContent = v === undefined ? '' : v === null ? 'X' : v;
+      val.setAttribute('fill', v === null ? 'var(--warn)' : 'var(--ink)');
+    } else if (id.startsWith('PI:')) {
+      const v = f.vals[id.slice(3)]; val.textContent = v === undefined ? '' : v;
+    }
+  });
+  const cyc = Math.floor(t / 4), ph = t % 4;
+  document.getElementById('tclock').textContent =
+    `t = ${t} 相位步 · 第 ${cyc} 周期 · 第 ${t} × 50 ps = ${t * 50} ps @ 5 GHz · 此刻被激励：第 ${[...new Set(sim.v.cells.filter(c => f.active.has(c.n)).map(c => c.L))].join('、') || '—'} 级`;
+  drawClock(t);
+  // 读数表
+  const shown = sim.rows.filter(r => sim.frames.findIndex(x => x.row === r) <= t);
+  const pis = sim.v.pis, pos = sim.v.pos;
+  const short = a => a.length > 8 ? a.join('').slice(0, 24) : a.join(' ');
+  let h = `<tr><th>周期</th><th>输入 ${esc(pis.length > 8 ? '(' + pis.length + ' 位)' : pis.join(' '))}</th><th>期望 ${esc(pos.length > 8 ? '' : pos.join(' '))}</th><th>读到</th><th></th></tr>`;
+  for (const r of shown) {
+    const exp = pos.map(p => r.exp[p]), got = pos.map(p => r.got[p] == null ? 'X' : r.got[p]);
+    const hasX = got.includes('X'), ok = !hasX && exp.every((e, i) => e === got[i]);
+    h += `<tr><td>${r.k}</td><td>${short(pis.map(p => r.vec[p]))}</td><td>${short(exp)}</td><td>${short(got)}</td>` +
+      `<td class="${ok ? 'ok' : hasX ? 'x' : 'ng'}">${ok ? '✓' : hasX ? 'X' : '✗ 错位'}</td></tr>`;
+  }
+  if (!shown.length) h += `<tr><td colspan="5">第一组输入要经过 ${sim.D} 个相位才到输出……</td></tr>`;
+  document.getElementById('readout').innerHTML = h;
+}
+function stopRun() { if (state.timer) { clearInterval(state.timer); state.timer = null; } document.getElementById('btnPlay').textContent = '运行'; }
+
+/* ---------------- 交互 ---------------- */
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = STEPS.map(s =>
+    `<button class="tab" role="tab" type="button" aria-selected="${s.id === state.step}" data-step="${s.id}">${s.name}</button>`).join('');
+}
+function renderQuiz() {
+  const q = ex().quiz, box = document.getElementById('quiz');
+  if (!q) { box.hidden = true; return; }
+  box.hidden = false;
+  document.getElementById('quizQ').textContent = q.q;
+  const done = quizSeen[ex().id];
+  document.getElementById('quizOpts').innerHTML = q.options.map((o, i) =>
+    `<button type="button" class="opt ${done != null ? (i === q.answer ? 'right' : (i === done ? 'wrong' : '')) : ''}" data-i="${i}" ${done != null ? 'disabled' : ''}>${String.fromCharCode(65 + i)}. ${esc(o)}</button>`).join('');
+  const a = document.getElementById('quizA');
+  a.hidden = done == null;
+  if (done != null) a.innerHTML = `<b>${done === q.answer ? '答对了。' : '答案是 ' + String.fromCharCode(65 + q.answer) + '。'}</b>${esc(q.explain)}`;
+}
+function refresh() {
+  stopRun();
+  document.getElementById('exDesc').textContent = ex().desc;
+  document.getElementById('vNew').setAttribute('aria-pressed', state.ver === 'new');
+  document.getElementById('vOld').setAttribute('aria-pressed', state.ver === 'old');
+  document.getElementById('vOld').disabled = !ex().old;
+  renderTabs(); renderQuiz(); render(); renderStats(); renderNote();
+  const run = state.step === 'run' && !ver().crash;
+  document.getElementById('runPanel').hidden = !run;
+  state.sim = null; state.t = 0;
+  if (run) { state.sim = buildSim(); paintFrame(); } else drawClock(null);
+}
+function renderChips() {
+  document.getElementById('exChips').innerHTML = '<span class="label">电路</span>' + DATA.examples.map((e, i) =>
+    `<button type="button" class="chip" aria-pressed="${i === state.ex}" data-ex="${i}">${esc(e.title)}</button>`).join('');
+}
+document.getElementById('exChips').addEventListener('click', e => {
+  const b = e.target.closest('[data-ex]'); if (!b) return;
+  state.ex = +b.dataset.ex; if (!ex().old) state.ver = 'new'; renderChips(); refresh();
+});
+document.getElementById('tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-step]'); if (!b) return; state.step = b.dataset.step; refresh();
+});
+document.getElementById('vNew').onclick = () => { state.ver = 'new'; refresh(); };
+document.getElementById('vOld').onclick = () => { state.ver = 'old'; refresh(); };
+document.getElementById('quizOpts').addEventListener('click', e => {
+  const b = e.target.closest('[data-i]'); if (!b) return;
+  quizSeen[ex().id] = +b.dataset.i;
+  try { localStorage.setItem('aqfpQuiz', JSON.stringify(quizSeen)); } catch (err) {}
+  renderQuiz();
+});
+document.getElementById('btnPlay').onclick = () => {
+  if (state.timer) { stopRun(); return; }
+  document.getElementById('btnPlay').textContent = '暂停';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  state.timer = setInterval(() => {
+    if (state.t >= state.sim.frames.length - 1) { stopRun(); return; }
+    state.t++; paintFrame();
+  }, reduce ? 900 : 420);
+};
+document.getElementById('btnStep').onclick = () => { stopRun(); if (state.sim && state.t < state.sim.frames.length - 1) { state.t++; paintFrame(); } };
+document.getElementById('btnReset').onclick = () => { stopRun(); state.t = 0; paintFrame(); };
+
+/* 读入用户自己的 *_aqfp.json */
+function loadJson(text, name) {
+  const msg = document.getElementById('fileMsg');
+  try {
+    const j = JSON.parse(text);
+    const pis = j.ports.filter(p => p.direction === 'input').flatMap(p => p.bits);
+    const pos = j.ports.filter(p => p.direction === 'output').flatMap(p => p.bits);
+    const cells = j.cells.map(c => ({n: c.name, c: c.type, r: c.role, o: c.origin, L: c.level, i: c.inputs, q: c.outputs}));
+    const unknown = [...new Set(cells.map(c => c.c).filter(t => !DATA.lib[t]))];
+    if (unknown.length) throw new Error('页面里没有这些单元的真值表：' + unknown.join('、'));
+    const depth = Math.max(0, ...cells.map(c => c.L));
+    const v = {pis, pos, alias: j.po_aliases || {}, cells, depth,
+      buffers: cells.filter(c => c.r === 'buffer').length, splitters: cells.filter(c => c.r === 'splitter').length, errors: []};
+    const logic = {pis, pos, alias: v.alias, cells: cells.filter(c => c.o === 'logic')};
+    // 逻辑视图里把 buffer/splitter 当导线
+    const drv = {}; cells.forEach(c => Object.values(c.q).forEach(n => drv[n] = c));
+    const root = n => { let g = 0; while (drv[n] && drv[n].o !== 'logic' && g++ < 999) n = Object.values(drv[n].i)[0]; return n; };
+    logic.cells = logic.cells.map(c => ({...c, i: Object.fromEntries(Object.entries(c.i).map(([p, n]) => [p, root(n)]))}));
+    logic.alias = Object.fromEntries(pos.map(p => [p, root(v.alias[p] || p)]));
+    DATA.examples.push({id: 'user-' + Date.now(), title: '你的：' + (j.module || name), desc: `从 ${name} 读入：${cells.length} 个单元。`, quiz: null, logic, new: v, old: null});
+    state.ex = DATA.examples.length - 1; state.ver = 'new';
+    renderChips(); refresh();
+    msg.textContent = '已读入。';
+  } catch (err) { msg.textContent = '读不了这个文件：' + err.message; }
+}
+document.getElementById('fileIn').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => loadJson(r.result, f.name); r.readAsText(f);
+});
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault(); const f = e.dataTransfer.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => loadJson(r.result, f.name); r.readAsText(f);
+});
+
+renderChips(); refresh();
+</script>

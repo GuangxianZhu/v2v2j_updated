@@ -1,0 +1,144 @@
+Metadata-Version: 2.4
+Name: v2v2j
+Version: 2.0.0
+Summary: AQFP 网表的 buffer/splitter 插入：Verilog → 插好的 Verilog → JoSIM
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: lp
+Requires-Dist: scipy>=1.9; extra == "lp"
+Requires-Dist: numpy; extra == "lp"
+Provides-Extra: rtl
+Requires-Dist: yowasp-yosys; extra == "rtl"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: scipy>=1.9; extra == "dev"
+Requires-Dist: numpy; extra == "dev"
+Requires-Dist: yowasp-yosys; extra == "dev"
+Dynamic: license-file
+
+# v2v2j 2.0 —— AQFP buffer / splitter 插入
+
+**V**erilog → (插好 buffer/splitter 的) **V**erilog → **J**oSIM。
+
+AQFP（绝热量子磁通参量器）是一种超导逻辑，有两条硬约束：
+
+1. **每个输出只能驱动一个负载**。多个负载要先过 splitter（1 进 2~4 出），splitter 自己也占一个相位；
+2. **每个门的所有输入必须来自上一相位**。路径不等长时要补 buffer。
+
+本工具读入门级网表（或 RTL，自动用 Yosys 综合），插入 buffer 和 splitter，输出满足这两条约束的网表，并能生成 JoSIM 电路级仿真网表。
+
+> 原版（2023 年手写的 notebook）在 `legacy/`，算法逻辑原样移植在 `v2v2j/legacy.py` 里作对照。
+
+交互演示页：`docs/aqfp_demo.html`（单文件，浏览器直接打开；可以拖入你自己跑出来的 `*_aqfp.json`）。
+
+## 快速开始（Windows / Linux 相同）
+
+```bash
+pip install -e ".[dev]"          # 纯 Python；scipy 用于线性规划，yowasp-yosys 用于综合 RTL
+python -m pytest -q              # 89 个测试；没有 josim-cli 时 JoSIM 的 7 个会跳过
+
+# 门级网表（单元名来自 lib/aqfp_hstp033_vlib.v）
+python -m v2v2j run examples/adder_mapped.v -o out
+
+# RTL：先综合成 AND/OR/NOT，再映射到 AQFP 单元（NOT 吸收进输入极性）
+python -m v2v2j run examples/rtl/add4.v --rtl -o out
+
+# 原版 vs 新版，同一把尺子评判
+python -m v2v2j compare examples/adder_mapped.v
+
+# 校验一个别人插好的网表
+python -m v2v2j verify their_netlist.v --reference before.v
+```
+
+`run` 的输出：`<模块>_aqfp.v`（Verilog，每个实例注明级数和相位）、`<模块>_aqfp.json`（给演示页或其他工具）、
+`<模块>_aqfp.dot`（Graphviz）、`<模块>_report.txt`（校验 + 流水线仿真报告）。
+
+常用选项：`--method asap|alap|lp|best`（默认 best）、`--max-fanout 3`、`--depth N`（指定输出相位）、
+`--free-pis` / `--free-pos`（不要求输入/输出对齐）、`--branch-pis`（主输入可直接分支）、`--bias`（Verilog 里按相位串好励磁线）。
+
+## 原版的问题（全部有测试复现：`tests/test_legacy_bugs.py`）
+
+| 情形 | 原版表现 | 原因 |
+|---|---|---|
+| 重汇聚（a 经长短两条路到同一个门） | 相位错，输出为 X | `assign_levels` 用 DFS"首次访问即定级"，取到的不是最长路径 |
+| 主输入直连深层门 | 没补 buffer | `add_buffers` 只遍历单元输出，主输入不是单元 |
+| 主输出同时驱动内部门 | 少一个 splitter，输出不对齐 | 扇出只数了单元输入脚，漏了主输出 |
+| 扇出 > 4 | `ValueError` | 没有搭 splitter 树 |
+| 总线 / 转义名 / assign | 静默得出错误结果 | 正则解析 |
+| 全加器里的 `c` | 多插 4 个 buffer | 先分裂再各自补 buffer，没有共享 |
+
+另外，原单元库 `or_bb` 把结果赋给了未声明的 `c`（笔误），行为仿真时这个门永远不出值。`lib/` 里的副本已改正，`legacy/vlib.txt` 保持原样；
+`Library` 读库时会自动报出这类问题。
+
+## 新版怎么做的
+
+```
+解析 ──► 删悬空门 ──► 调度（给逻辑门定级） ──► 每根线搭最省的树 ──► 独立校验 + 流水线仿真
+```
+
+**每根线上的树**（`v2v2j/trees.py`）。驱动在 L₀，负载 i 要在第 rᵢ 级拿到拷贝。从最深处倒推：
+`c(t) = s(t) + ⌈c(t+1)/k⌉`，可行当且仅当 `c(L₀) ≤ 1`，单元数 `Σ⌈c(t)/k⌉`。每层都取到下界，所以对固定的负载相位是最优的
+（测试里与穷举搜索在 40 组随机情形上对照一致）。等价的可行条件是 Kraft 不等式 `Σ k^-(rᵢ-L₀) ≤ 1`。
+
+**调度**（`v2v2j/schedule.py`）：
+- 深度：先用保守约束（扇出 n 的负载统一推迟 ⌈log_k n⌉ 级）得到一个深度，再用"全体最晚"调度作精确判据往下压，得到最小深度。
+  判据成立的理由：负载越晚，驱动的最晚相位只会越晚，扇入网线的 Kraft 和只会越小——若某深度下存在可行调度，"全体最晚"那个也可行。
+- 在该深度下产生三个候选：ASAP、ALAP、线性规划（把 buffer 数近似成每根线上最长链长度；约束全是差分形式，矩阵全幺模，单纯形解天然是整数），
+  每个再用精确树代价做局部搜索，取单元最少者。
+
+**校验**（`v2v2j/verify.py`）不信任插入算法给的级数，从结构重新推：单驱动、单负载、每个单元输入同级、输出对齐、与插入前功能等价（≤14 输入穷举，否则 2048 组随机）。
+
+**流水线仿真**（`v2v2j/sim.py`）：每个时钟周期送一组新输入，按相位一步步算。读的源头恰好早一个相位才有效，否则为 X；
+早 5、9… 个相位时读到的是别的周期的数据（静默错位，最危险）。
+
+## 结果（详见 `bench/RESULTS.md`）
+
+- 13 个 Yosys 综合的电路（加法器、乘法器、比较器、popcount、c17 等）：原版只有纯 XOR 树一个是对的，5 个直接崩溃；
+  新版全部通过校验和流水线仿真。LP 比 ASAP 合计少约 27% 的 buffer+splitter。
+- 与 [mockturtle](https://github.com/lsils/mockturtle)（EPFL 的主流开源实现）在**同一个 AIG**上对比：13 个电路深度全部相同，
+  buffer+splitter 数 7 个持平、6 个更少。只比了它的启发式（`until_sat`），没比它的 SMT 最优模式。
+
+## JoSIM（名字里的 "j"）
+
+```bash
+python -m v2v2j run examples/rtl/inv_pipe.v --rtl --depth 5 -o out \
+    --josim-cellmap josim/demo_cellmap.json --josim-include josim/demo_cells_pi_dqfp.cir --vectors 12
+josim-cli -m 0 out/inv_pipe.cir -o out/inv_pipe.csv
+python -m v2v2j josim-read out/inv_pipe.csv out/inv_pipe.timing.json      # → 12 个周期，全部正确
+```
+
+- 励磁：两条交流线 X1、X2（差 90°）+ 一条直流线。相位 0/1/2/3 = X1 正接 / X2 正接 / X1 反接 / X2 反接，
+  **直流线在相位 1、3 也要反接**。这套接法是逐个节点对照 JoSIM 仓库自带的 HSTP π-DQFP 例子核出来的。
+- 每个主输出后接一个下一相位的 buffer 作负载，串 0.1 pH 探针电感读电流；`*.timing.json` 记录每组输入何时施加、何时采样。
+- `josim/demo_cells_pi_dqfp.cir` 只有 buffer 和 inverter（取自 JoSIM 仓库，MIT 许可），足以验证接线和时序，跑不了含 AND/OR/splitter 的电路。
+  **换成你自己的单元库**：写一个 cellmap（单元名 → 子电路名与端口顺序），时序参数（`JosimConfig`）按你的库重新标定。
+- `tests/test_josim.py`：2~9 级流水线每周期换输入全部正确；故意对调两级的相位，输出出错（负对照）。
+
+编译 JoSIM 时若 CMake 下载依赖失败，可以把 `cmake/dependencies.cmake` 改成对本地 git clone 的 `add_subdirectory`。
+
+## 假设与失效条件
+
+| 假设 | 不成立时 |
+|---|---|
+| 组合电路、无环 | 有环会报错。时序电路需先在寄存器处切开 |
+| buffer 与 splitter 代价相同 | 若你的库里 spl4 远大于 bfr，"最少单元数"不等于"最小面积"，需改代价 |
+| 主输入都在第 0 相位到达、需要 splitter | 可用 `--free-pis` / `--branch-pis` 改 |
+| 反相免费（输入变压器反接） | 若库里没有带反相输入的门，RTL 映射会报错 |
+| 单元库行为写成 `out = 表达式;` | 写成 case/if 的单元识别不出功能，不参与仿真 |
+| `--bias` 的 Verilog 励磁接线 | 原单元库的行为模型在 Icarus Verilog 下编译不过（对 inout 做过程赋值），所以这一项只按 JoSIM 的接法生成，**未在 Verilog 仿真里验证** |
+| 页面/`sim.py` 的相位模型 | 偏保守：JoSIM 里同相位相邻的两级有时也能正确传递（只在一个电路上观察到） |
+
+## 目录
+
+```
+v2v2j/        库解析、网表模型、解析器、Yosys 流程、调度、建树、校验、仿真、输出、JoSIM、原版移植、命令行
+lib/          AQFP 单元库（修正了 or_bb 笔误的副本）
+examples/     门级与 RTL 示例
+tests/        pytest
+bench/        基准电路、原版/新版对比、mockturtle 对比（mt_bench.cpp）
+josim/        演示用 JoSIM 单元与端口映射
+docs/         交互演示页及其生成脚本
+legacy/       2023 年原版 notebook 与输出
+```

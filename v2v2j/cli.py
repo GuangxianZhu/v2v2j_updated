@@ -97,7 +97,7 @@ def _emit_josim(args, out: Netlist, golden: Netlist, base: str) -> str:
     missing = sorted({i.cell for i in out.insts.values()} - set(cm))
     rng = random.Random(args.seed)
     stream = [{p: rng.getrandbits(1) for p in out.pis} for _ in range(args.vectors)]
-    cfg = JosimConfig(include=args.josim_include or "cells.cir", cellmap=cm)
+    cfg = JosimConfig(include=os.path.abspath(args.josim_include) if args.josim_include else "cells.cir", cellmap=cm)
     txt, timing = to_josim(out, stream, cfg)
     order = golden.topo_order()
     timing["expected"] = [comb_eval(golden, v, order) for v in stream]

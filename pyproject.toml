@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "v2v2j"
+version = "2.0.0"
+description = "AQFP 网表的 buffer/splitter 插入：Verilog → 插好的 Verilog → JoSIM"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+lp = ["scipy>=1.9", "numpy"]
+rtl = ["yowasp-yosys"]
+dev = ["pytest", "scipy>=1.9", "numpy", "yowasp-yosys"]
+
+[project.scripts]
+v2v2j = "v2v2j.cli:main"
+
+[tool.setuptools]
+packages = ["v2v2j"]
